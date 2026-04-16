@@ -1,0 +1,118 @@
+"srcds_addons"
+{
+	"1907060869"
+	{
+		"name"		"Srlion's Hook Library"
+		"path"		"/home/container/steam_cache/content/4000/1907060869"
+	}
+	"3397100790"
+	{
+		"name"		"GMod Tower: Complete Map Archive"
+		"path"		"/home/container/steam_cache/content/4000/3397100790"
+	}
+	"3397100610"
+	{
+		"name"		"GMod Tower: Complete Asset Archive"
+		"path"		"/home/container/steam_cache/content/4000/3397100610"
+	}
+	"150404359"
+	{
+		"name"		"GMod Tower: Player Model Pack"
+		"path"		"/home/container/steam_cache/content/4000/150404359/56610405702011618_legacy.bin"
+	}
+	"2313951621"
+	{
+		"name"		"GMod Tower Spawnmenu + UI Sounds"
+		"path"		"/home/container/steam_cache/content/4000/2313951621"
+	}
+	"3705662940"
+	{
+		"name"		"gPeek - Addon Content Inspector"
+		"path"		"/home/container/steam_cache/content/4000/3705662940"
+	}
+	"3636781154"
+	{
+		"name"		"3D2D Textscreens Revamped"
+		"path"		"/home/container/steam_cache/content/4000/3636781154"
+	}
+	"3001397905"
+	{
+		"name"		"Media Player Redux"
+		"path"		"/home/container/steam_cache/content/4000/3001397905"
+	}
+	"773402917"
+	{
+		"name"		"Advanced Duplicator 2"
+		"path"		"/home/container/steam_cache/content/4000/773402917"
+	}
+	"104482086"
+	{
+		"name"		"[Official] Precision Tool"
+		"path"		"/home/container/steam_cache/content/4000/104482086/447357553619383301_legacy.bin"
+	}
+	"104815552"
+	{
+		"name"		"SmartSnap"
+		"path"		"/home/container/steam_cache/content/4000/104815552/845968103086040271_legacy.bin"
+	}
+	"264467687"
+	{
+		"name"		"Improved Stacker"
+		"path"		"/home/container/steam_cache/content/4000/264467687"
+	}
+	"2685051966"
+	{
+		"name"		"Image Tool - Your pictures in the world!"
+		"path"		"/home/container/steam_cache/content/4000/2685051966"
+	}
+	"246756300"
+	{
+		"name"		"3D Stream Radio"
+		"path"		"/home/container/steam_cache/content/4000/246756300"
+	}
+	"2425701082"
+	{
+		"name"		"🔥 PermaProps - Clean & Easy [with MySQL support]"
+		"path"		"/home/container/steam_cache/content/4000/2425701082"
+	}
+	"118824086"
+	{
+		"name"		"Cinema"
+		"path"		"/home/container/steam_cache/content/4000/118824086/928177532152324075_legacy.bin"
+	}
+	"104548572"
+	{
+		"name"		"Playable Piano"
+		"path"		"/home/container/steam_cache/content/4000/104548572/938133153078523127_legacy.bin"
+	}
+	"104540875"
+	{
+		"name"		"Trampoline"
+		"path"		"/home/container/steam_cache/content/4000/104540875/938133153078339559_legacy.bin"
+	}
+	"1595332211"
+	{
+		"name"		"GmodAdminSuite"
+		"path"		"/home/container/steam_cache/content/4000/1595332211"
+	}
+	"3363786936"
+	{
+		"name"		"GMod Tower: Gamemode Content"
+		"path"		"/home/container/steam_cache/content/4000/3363786936"
+	}
+	"3363754202"
+	{
+		"name"		"GMod Tower: Materials 1"
+		"path"		"/home/container/steam_cache/content/4000/3363754202"
+	}
+	"3363757207"
+	{
+		"name"		"GMod Tower: Materials 2"
+		"path"		"/home/container/steam_cache/content/4000/3363757207"
+	}
+	"3363760927"
+	{
+		"name"		"GMod Tower: Sounds/Resources"
+		"path"		"/home/container/steam_cache/content/4000/3363760927"
+	}
+}

@@ -1,0 +1,15 @@
+{
+	"AllowTagsInNames": true,
+	"UserGroups": {
+		"superadmin": {
+			"EmoteName": "star",
+			"EmoteProvider": "",
+			"EmoteSize": -1,
+			"Tag": "supernigga"
+		}
+	},
+	"AllowTagsInMessages": true,
+	"Titles": [],
+	"Tabs": [],
+	"OverrideClientSettings": true
+}

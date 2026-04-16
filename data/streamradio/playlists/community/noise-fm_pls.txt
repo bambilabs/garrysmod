@@ -1,0 +1,6 @@
+[playlist]
+NumberOfEntries=1
+File1=http://play.sas-media.ru/play_256
+Title1=Noise FM
+Length1=-1
+Version=2

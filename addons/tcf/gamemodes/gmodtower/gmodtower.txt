@@ -1,0 +1,4 @@
+"gmodtower"
+{
+	"name"		"GMod Tower"
+}
