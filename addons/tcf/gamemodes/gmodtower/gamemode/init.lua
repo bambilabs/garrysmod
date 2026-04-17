@@ -5,7 +5,47 @@ AddCSLuaFile("sh_loadables.lua")
 
 // dotenv
 require("dotenv")
-env.load(".env")
+
+local ENV_PATHS = {
+    ".env",
+    "addons/tcf/.env",
+}
+
+local function HasTCFEnvKeys()
+    return env.getString( "DATABASE_HOST", nil ) != nil
+        or env.getString( "DATABASE_USER", nil ) != nil
+        or env.getString( "DATABASE_PASSWORD", nil ) != nil
+        or env.getString( "DATABASE_DB", nil ) != nil
+        or env.getString( "WEB_TELEMETRY_URL", nil ) != nil
+end
+
+function LoadTCFEnv()
+    for _, path in ipairs( ENV_PATHS ) do
+        if file.Exists( path, "GAME" ) then
+            if file.IsDir( path, "GAME" ) then
+                print( "[TCF] Ignoring env path because it is a directory: " .. path )
+                continue
+            end
+
+            env.load( path )
+
+            if not HasTCFEnvKeys() then
+                print( "[TCF] Ignoring env path because it does not contain TCF keys: " .. path )
+                continue
+            end
+
+            TCFEnvPath = path
+            return path
+        end
+    end
+
+    TCFEnvPath = false
+    print( "[TCF] Failed to find .env. Checked: " .. table.concat( ENV_PATHS, ", " ) )
+
+    return nil
+end
+
+LoadTCFEnv()
 
 include("shared.lua")
 include("sh_load.lua")
