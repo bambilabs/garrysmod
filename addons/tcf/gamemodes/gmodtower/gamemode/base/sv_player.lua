@@ -9,7 +9,7 @@ PlayerRoles = {
 
 	// Developers
 	["STEAM_0:0:103569284"]  = "Developer",	// Jack
-	["STEAM_0:0:38865393"]	= "Developer", //  you got out :3
+	["STEAM_0:1:23796642"]	= "Developer", //  BigBear
 
 	// Contributor
 	["STEAM_0:0:193442077"] = "Contributor", // Nyantendo
