@@ -2,44 +2,18 @@
 module( "Admins", package.seeall )
 
 List = {
-
-	["STEAM_0:0:103569284"]	= true, -- Jack
-
-	["STEAM_0:0:38865393"]	= true, -- boXy
-	["STEAM_0:1:124798129"]	= true, -- AmGona
-	["STEAM_0:1:39916544"]	= true, -- Anomaladox
-	["STEAM_0:0:44458854"]	= true, -- Bumpy
-	["STEAM_0:0:35652170"]  = true, -- Lead
-	["STEAM_0:0:241528576"]	= true, -- Scienti[-]
-	["STEAM_0:1:51961500"]	= true, -- Patapancakes
-	["STEAM_0:1:93126701"]	= true, -- Witchdagger
-	["STEAM_0:0:6009886"]   = true, -- Rifter Overtime
-
+	["STEAM_0:0:103569284"] = true, -- Jack
+	["STEAM_0:1:644154181"] = true, -- William
 }
 
 ListSecret = {
 
-	//["STEAM_0:0:618033331"] = true, -- kity alt
-	["STEAM_0:0:614075224"] = true, -- tcf
-
 }
 
 ListModerator = {
-
-	["STEAM_0:0:89274059"] 	= true, -- Billy
 	["STEAM_0:1:23796642"] = true, -- BigBear
-	["STEAM_0:0:156132358"] = true, -- Basical
-	["STEAM_0:1:85508734"] 	= true, -- Breezy
-	["STEAM_0:0:115320789"] = true, -- Zia
-	["STEAM_0:0:41914866"] 	= true, -- Sunni
-	["STEAM_0:1:53166133"] 	= true, -- Orlok
-	["STEAM_0:1:72402171"] 	= true, -- Umbre
-	["STEAM_0:1:97372299"]	= true, -- NotGaylien
-	["STEAM_0:0:69447790"]	= true, -- Oliver Ward
-	["STEAM_0:0:52342461"]	= true, -- Willy Bonka
-	["STEAM_0:0:55259712"]	= true, -- Espy
-	["STEAM_0:1:4313984"]	= true, -- Master
-
+	["STEAM_0:0:89274059"] = true, -- Billy
+	["STEAM_0:1:123697233"] = true, -- Shay
 }
 
 function IsAdmin( steamid )

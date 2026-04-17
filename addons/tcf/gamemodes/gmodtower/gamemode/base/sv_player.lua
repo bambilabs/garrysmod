@@ -3,26 +3,16 @@
 */
 
 PlayerRoles = {
-
-    // Lead Dev
-	["BOT"] = "Co-Lead Developer",  // Scienti[-]
+	// Preserved non-Steam roles
+	["BOT"] = "Co-Lead Developer", -- Scienti[-]
 
 	// Developers
-	["STEAM_0:0:103569284"]  = "Developer",	// Jack
-	["STEAM_0:1:23796642"]	= "Developer", //  BigBear
+	["STEAM_0:1:23796642"] = "Developer", -- BigBear
+	["STEAM_0:0:103569284"] = "Developer", -- Jack
+	["STEAM_0:1:644154181"] = "Developer", -- William
 
-	// Contributor
-	["STEAM_0:0:193442077"] = "Contributor", // Nyantendo
-	["STEAM_0:1:95941298"]  = "Contributor", // Pipedream
-	
-	// Pixeltail Games
-	["STEAM_0:1:6044247"]   = "PixelTail",	// MacDGuy
-	["STEAM_0:0:32497992"]  = "PixelTail",	// Caboose700
-	["STEAM_0:1:11414156"]  = "PixelTail",	// Lifeless
-	["STEAM_0:1:21111851"]  = "PixelTail",	// Will
-	["STEAM_0:0:6807675"]   = "PixelTail",	// Johanage
-	["STEAM_0:0:72861849"]  = "PixelTail",	// Madmijk
-
+	// Contributors
+	["STEAM_0:0:89274059"] = "Contributor", -- Billy
 }
 
 function GetPlayerRole( steamid )
