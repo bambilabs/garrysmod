@@ -1,3 +1,11 @@
+require( "dotenv" )
+
+if LoadTCFEnv then
+    LoadTCFEnv()
+else
+    env.load( ".env" )
+end
+
 local TELEMETRY_URL = env.getString( "WEB_TELEMETRY_URL", "" )
 local TELEMETRY_SECRET = env.getString( "WEB_TELEMETRY_SECRET", "" )
 local TELEMETRY_INTERVAL = env.getNumber( "WEB_TELEMETRY_INTERVAL", 60 )

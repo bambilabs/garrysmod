@@ -7,6 +7,19 @@ module( "Database", package.seeall )
 DEBUG = false
 Object = Object or nil
 
+local function EscapeFallback( str )
+    str = tostring( str or "" )
+    str = string.Replace( str, "\\", "\\\\" )
+    str = string.Replace( str, "\000", "\\0" )
+    str = string.Replace( str, "\n", "\\n" )
+    str = string.Replace( str, "\r", "\\r" )
+    str = string.Replace( str, string.char( 26 ), "\\Z" )
+    str = string.Replace( str, "'", "\\'" )
+    str = string.Replace( str, "\"", "\\\"" )
+
+    return str
+end
+
 function GetObject()
     return Object
 end
@@ -64,7 +77,11 @@ function Query( str, callback )
 
     if not IsConnected() then
         ErrorNoHaltWithStack( "Attempt to query with a disconnected database!" )
-        return
+        if callback then
+            callback( nil, QUERY_FAILIURE, "Database disconnected." )
+        end
+
+        return false
     end
 
     local driver = GetObject()
@@ -74,15 +91,16 @@ function Query( str, callback )
 end
 
 function Escape( str, withquotes )
+    local escaped_string
 
     if not IsConnected() then
         ErrorNoHaltWithStack( "Attempt to escape with a disconnected database!" )
-        return
+        escaped_string = EscapeFallback( str )
+    else
+        local driver = GetObject()
+
+        escaped_string = driver:escape( str )
     end
-
-    local driver = GetObject()
-
-    local escaped_string = driver:escape( str )
 
     if withquotes then
         escaped_string = "'" .. escaped_string .. "'" 

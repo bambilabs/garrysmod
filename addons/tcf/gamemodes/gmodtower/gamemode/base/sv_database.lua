@@ -1,22 +1,54 @@
 require( "dotenv" )
-env.load( ".env" )
+
+if LoadTCFEnv then
+    LoadTCFEnv()
+else
+    env.load( ".env" )
+end
 
 // Setup Database Connection
 
 local function SetupDatabase()
+    if LoadTCFEnv then
+        LoadTCFEnv()
+    end
 
     local driver = env.getString( "DATABASE_DRIVER", "mysqloo" )
+    local host = env.getString( "DATABASE_HOST", "localhost" )
+    local password = env.getString( "DATABASE_PASSWORD", "password" )
+    local socket = env.getString( "DATABASE_SOCKET", nil )
+
+    if string.lower( host ) == "localhost" and ( not socket or socket == "" ) then
+        host = "127.0.0.1"
+    end
+
+    if password == "yourpassword" then
+        LogPrint( "DATABASE_PASSWORD is still using the placeholder value from " .. tostring( TCFEnvPath or ".env" ) .. ".", color_red, "Database" )
+    end
+
     local config = {
-    host = env.getString( "DATABASE_HOST", "localhost" ),
+    host = host,
 
     username = env.getString( "DATABASE_USER", "root" ),
-    password = env.getString( "DATABASE_PASSWORD", "password" ),
+    password = password,
 
     db = env.getString( "DATABASE_DB", "gmt" ),
 
     port = env.getNumber( "DATABASE_PORT", 3306 ),
-    socket = env.getString( "DATABASE_SOCKET", nil ),
+    socket = socket,
 }
+
+    LogPrint(
+        Format(
+            "Using env \"%s\" with host \"%s\", port \"%s\", socket \"%s\".",
+            tostring( TCFEnvPath or ".env" ),
+            tostring( config.host ),
+            tostring( config.port ),
+            tostring( config.socket )
+        ),
+        nil,
+        "Database"
+    )
     
     Database.SetDriver( driver )
     Database.SetConfig( config )

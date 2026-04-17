@@ -94,8 +94,9 @@ local function OnMediaSet( len )
 		return
 	end
 
-	if mp:GetPlayerState() >= MP_STATE_PLAYING then
-		mp:OnMediaFinished()
+	local currentMedia = mp:CurrentMedia()
+	if IsValid( currentMedia ) then
+		mp:OnMediaFinished( currentMedia )
 		mp:QueueUpdated()
 	end
 

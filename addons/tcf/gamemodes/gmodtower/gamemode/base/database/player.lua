@@ -4,6 +4,35 @@ module( "Database", package.seeall )
 LastSave = LastSave or 0
 SaveFrequency = 60 * ( IsLobby and 2 or 5 )
 
+local PendingPlayerLoads = {}
+
+local function EnsurePlayerDefaults( ply )
+    if not IsValid( ply ) then return end
+    if ply._DatabaseDefaultsApplied then return end
+
+    Columns.SetPlayerDefaults( ply )
+    ply._DatabaseDefaultsApplied = true
+end
+
+local function QueuePlayerLoad( ply )
+    if not IsValid( ply ) then return end
+    if ply:ProfileLoaded() then return end
+
+    PendingPlayerLoads[ ply ] = true
+end
+
+local function ClearPendingPlayerLoad( ply )
+    PendingPlayerLoads[ ply ] = nil
+
+    if IsValid( ply ) then
+        ply._DatabaseLoadPending = false
+    end
+end
+
+local function IsDisconnectedError( err )
+    return string.find( tostring( err or "" ), "Database disconnected.", 1, true ) != nil
+end
+
 function ValidPlayer( ply )
 
     if not IsValid( ply ) then
@@ -19,6 +48,7 @@ function ValidPlayer( ply )
 end
 
 function InsertPlayer( ply, callback )
+    callback = callback or EmptyFunction
 
     local valid, err = ValidPlayer( ply )
     if valid != true then
@@ -26,13 +56,24 @@ function InsertPlayer( ply, callback )
         return
     end
 
+    if not Database.IsConnected() then
+        callback( false, ply, "Database disconnected." )
+        return
+    end
+
+    local id = ply:DatabaseID()
+    local steamid = ply:SteamID() or ""
+    local nickname = ply:Nick() or ""
+    local ip = ply:DatabaseIP() or ""
+    local steamid_query = Database.Escape( steamid, true )
+    local name_query = Database.Escape( nickname, true )
+    local ip_query = Database.Escape( ip, true )
+
     // hardcoding this for now, sorry
-    local insert_query = "INSERT INTO `gm_users` (id, steamid, name, ip) VALUES (" .. ply:DatabaseID() .. ", '" .. ply:SteamID() .. "', '" .. Database.Escape( ply:Nick() ) .. "', '" .. ply:DatabaseIP() .. "') ON DUPLICATE KEY UPDATE name = '" .. Database.Escape( ply:Nick() ) .. "', ip = '" .. ply:DatabaseIP() .. "';"
+    local insert_query = "INSERT INTO `gm_users` (id, steamid, name, ip) VALUES (" .. id .. ", " .. steamid_query .. ", " .. name_query .. ", " .. ip_query .. ") ON DUPLICATE KEY UPDATE name = " .. name_query .. ", ip = " .. ip_query .. ";"
 
     // store these since the player could go invalid before the query is done
-    local id = ply:DatabaseID()
-    local steamid = ply:SteamID()
-    local name = ply:Nick() .. " [" .. steamid .. "]"
+    local name = nickname .. " [" .. steamid .. "]"
 
     Query( insert_query, function( res, status, err )
         
@@ -80,6 +121,11 @@ function SavePlayer( ply, columns, callback )
         return
     end
 
+    if not Database.IsConnected() then
+        callback( false, ply, "Database disconnected." )
+        return
+    end
+
     local data = Columns.GetPlayer( ply, columns )
     if table.IsEmpty(data) then
         callback( false, ply, "Failed to get player columns. (" .. table.concat( columns or {"all"}, "," ) .. ")" )
@@ -120,6 +166,7 @@ function SavePlayer( ply, columns, callback )
 end
 
 hook.Add( "PlayerDisconnected", "DatabaseSave", function( ply )
+    ClearPendingPlayerLoad( ply )
 
     SavePlayer( ply )
 
@@ -144,6 +191,13 @@ function SaveAll( columns )
 end
 
 function FetchPlayerByID( id, columns, callback )
+    if not Database.IsConnected() then
+        if callback then
+            callback( false, id, "Database disconnected." )
+        end
+
+        return
+    end
     
     local query = "SELECT " .. Columns.SelectQuery(columns) .. " FROM `gm_users` WHERE id = " .. id .. ";"
 
@@ -168,6 +222,7 @@ function FetchPlayerByID( id, columns, callback )
 end
 
 function FetchPlayer( ply, columns, callback )
+    callback = callback or EmptyFunction
 
     local valid, err = ValidPlayer( ply )
     if valid != true then
@@ -185,26 +240,50 @@ function FetchPlayer( ply, columns, callback )
 
 end
 
-local function LoadPlayerData( ply )
+local function StartPlayerDataLoad( ply )
+    if not IsValid( ply ) then return end
+    if ply:ProfileLoaded() or ply._DatabaseLoadPending then return end
 
-    Columns.SetPlayerDefaults( ply )
+    if not Database.IsConnected() then
+        QueuePlayerLoad( ply )
+        return
+    end
 
-    InsertPlayer( ply, function( status, ply, err )
+    ClearPendingPlayerLoad( ply )
+    ply._DatabaseLoadPending = true
+
+    InsertPlayer( ply, function( status, _, err )
     
         if status != true then
+            if IsDisconnectedError( err ) then
+                QueuePlayerLoad( ply )
+            end
+
+            ClearPendingPlayerLoad( ply )
             return
         end
 
-        if not IsValid( ply ) then return end
+        if not IsValid( ply ) then
+            ClearPendingPlayerLoad( ply )
+            return
+        end
 
-        FetchPlayer( ply, nil, function( status, ply, data )
+        FetchPlayer( ply, nil, function( status, _, data )
 
             if status != true then
+                if IsDisconnectedError( data ) then
+                    QueuePlayerLoad( ply )
+                end
+
+                ClearPendingPlayerLoad( ply )
                 return
             end
     
             // can never have enough isvalid checks
-            if not IsValid( ply ) then return end
+            if not IsValid( ply ) then
+                ClearPendingPlayerLoad( ply )
+                return
+            end
 
             // could have something better for this, but whateva
             if not tonumber( data.time ) then
@@ -214,10 +293,12 @@ local function LoadPlayerData( ply )
             local success = Columns.ApplytoPlayer( ply, data )
             if success != true then
                 LogPrint( "Failed to apply data to player " .. tostring( ply ) .. "! (" .. table.concat( table.GetKeys(data) or {}, "," ) .. ")", color_red, "Database" )
+                ClearPendingPlayerLoad( ply )
                 return
             end
     
             ply._DataLoaded = true
+            ClearPendingPlayerLoad( ply )
         
             hook.Run( "PostPlayerDataLoaded", ply )
 
@@ -232,7 +313,26 @@ local function LoadPlayerData( ply )
 
 end
 
+local function LoadPlayerData( ply )
+    EnsurePlayerDefaults( ply )
+    StartPlayerDataLoad( ply )
+end
+
+local function LoadQueuedPlayerData()
+    if not Database.IsConnected() then return end
+
+    for ply in pairs( PendingPlayerLoads ) do
+        if not IsValid( ply ) then
+            PendingPlayerLoads[ ply ] = nil
+            continue
+        end
+
+        StartPlayerDataLoad( ply )
+    end
+end
+
 hook.Add( "PlayerAuthed", "FetchData", LoadPlayerData )
+hook.Add( "DatabaseConnected", "FetchQueuedData", LoadQueuedPlayerData )
 
 local function SaveThink()
 

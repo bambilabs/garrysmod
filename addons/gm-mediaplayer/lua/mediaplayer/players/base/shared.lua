@@ -128,6 +128,10 @@ function MEDIAPLAYER:OnPlayerStateChanged( old, new )
 		if validMedia and media:IsPlaying() then
 			media:Pause()
 		end
+	elseif new <= MP_STATE_ENDED then
+		if validMedia then
+			media:Stop()
+		end
 	end
 
 	self:emit( MP.EVENTS.PLAYER_STATE_CHANGED, new, old )
@@ -250,6 +254,12 @@ MEDIAPLAYER.CurrentMedia = MEDIAPLAYER.GetMedia
 -- @param media		Media object.
 --
 function MEDIAPLAYER:SetMedia( media )
+	local oldMedia = self._Media
+
+	if CLIENT and IsValid( oldMedia ) and oldMedia ~= media then
+		oldMedia:Stop()
+	end
+
 	self._Media = media
 	self:OnMediaStarted( media )
 
