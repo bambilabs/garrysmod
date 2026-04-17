@@ -7,13 +7,12 @@ List = {
 }
 
 ListSecret = {
-
+	["STEAM_0:1:123697233"] = true, -- Shay
 }
 
 ListModerator = {
 	["STEAM_0:1:23796642"] = true, -- BigBear
 	["STEAM_0:0:89274059"] = true, -- Billy
-	["STEAM_0:1:123697233"] = true, -- Shay
 }
 
 function IsAdmin( steamid )
