@@ -5,6 +5,8 @@ gateKeep.AdminBypass = true
 gateKeep.AuthorizedPlayers = {}
 gateKeep.GoMapQueryInFlight = false
 gateKeep.GoMapQuerySince = 0
+gateKeep.GoMapWaitingForLoadingSince = 0
+gateKeep.GoMapLoadingGrace = 5
 
 if SERVER and GTowerServers and GTowerServers.Trace then
     GTowerServers:Trace( "load", "base/multiserver/gatekeeper.lua loaded" )
@@ -15,6 +17,8 @@ function GetAuthorizedPlayers()
     return gateKeep.AuthorizedPlayers
 
 end
+
+local ClearPendingPrivateQueue
 
 local function PromotePrivateServerFromGoMap( targetMap, authHex )
     if not authHex or authHex == "" then return end
@@ -32,6 +36,12 @@ local function PromotePrivateServerFromGoMap( targetMap, authHex )
 
     file.Write( "authedusers" .. tostring( GTowerServers:GetServerId() ) .. ".txt", authHex )
 
+    local clearErr = ClearPendingPrivateQueue()
+    GTowerServers:Trace( "gate", "PromotePrivateServerFromGoMap cleared gm_loading err=", tostring( clearErr ) )
+    if clearErr then
+        SQLLog( "error", "Gatekeeper failed to clear gm_loading for server ", GTowerServers:GetServerId(), ": ", tostring( clearErr ) )
+    end
+
     GTowerServers:SetState( 3 )
     GTowerServers:UpdateDatabase()
     timer.Simple( 45, function() gateKeep:ResetEmptyReadyServer() end )
@@ -44,7 +54,7 @@ local function PromotePrivateServerFromGoMap( targetMap, authHex )
     end
 end
 
-local function RunGoMapQuerySync( query )
+local function RunSyncQuery( query, traceLabel )
     if not Database or not Database.GetObject then
         return nil, "Database.GetObject unavailable"
     end
@@ -58,7 +68,7 @@ local function RunGoMapQuerySync( query )
 
     local qu = db:query( query )
 
-    GTowerServers:Trace( "gate", "RunGoMapQuerySync start sql=", tostring( query ) )
+    GTowerServers:Trace( "gate", tostring( traceLabel or "RunSyncQuery" ), " start sql=", tostring( query ) )
 
     local ok, waitErr = xpcall( function()
         qu:start()
@@ -75,6 +85,67 @@ local function RunGoMapQuerySync( query )
     end
 
     return qu:getData() or {}, nil
+end
+
+local function GetPrivateLoadingGamemode()
+    local Gamemode = GTowerServers and GTowerServers.Self and GTowerServers:Self()
+
+    if Gamemode and Gamemode.Gamemode then
+        return tostring( Gamemode.Gamemode )
+    end
+
+    if GTowerServers and GTowerServers.Gamemode then
+        return tostring( GTowerServers:Gamemode() or "" )
+    end
+
+    return ""
+end
+
+local function GetPendingLoadingSteamIDs()
+    local loadingGamemode = GetPrivateLoadingGamemode()
+
+    if loadingGamemode == "" then
+        return "", "Missing private loading gamemode", false
+    end
+
+    local res, err = RunSyncQuery(
+        "SELECT `steamids` FROM `gm_loading` WHERE `gamemode` = " .. Database.Escape( loadingGamemode, true ) .. " LIMIT 1;",
+        "RunLoadingQuerySync"
+    )
+
+    if res == nil then
+        return "", err, false
+    end
+
+    if type( res ) != "table" or table.Count( res ) == 0 then
+        return "", nil, false
+    end
+
+    return string.Trim( tostring( res[ 1 ].steamids or "" ) ), nil, true
+end
+
+ClearPendingPrivateQueue = function()
+    local loadingGamemode = GetPrivateLoadingGamemode()
+
+    if loadingGamemode == "" then
+        return "Missing private loading gamemode"
+    end
+
+    local _, err = RunSyncQuery(
+        "UPDATE `gm_loading` SET `steamids` = '' WHERE `gamemode` = " .. Database.Escape( loadingGamemode, true ) .. ";",
+        "ClearLoadingQuerySync"
+    )
+
+    return err
+end
+
+local function DeletePendingGoMap( ServerID )
+    local _, err = RunSyncQuery(
+        "DELETE FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";",
+        "DeleteGoMapQuerySync"
+    )
+
+    return err
 end
 
 local function InitGateKeep()
@@ -223,8 +294,9 @@ function gateKeep:PollGoMap( ServerID )
     gateKeep.GoMapQuerySince = CurTime()
     GTowerServers:Trace( "gate", "PollGoMap querying gm_gomap for server=", tostring( ServerID ) )
 
-    local syncRes, syncErr = RunGoMapQuerySync(
-        "SELECT `authplayers`, `gomap` FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";"
+    local syncRes, syncErr = RunSyncQuery(
+        "SELECT `authplayers`, `gomap` FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";",
+        "RunGoMapQuerySync"
     )
 
     if syncRes != nil or syncErr != "Sync gm_gomap query unavailable for current driver" then
@@ -243,17 +315,65 @@ function gateKeep:PollGoMap( ServerID )
         end
 
         if type( syncRes ) != "table" or table.Count( syncRes ) == 0 then
+            gateKeep.GoMapWaitingForLoadingSince = 0
             return
         end
 
         local targetMap = string.lower( syncRes[1].authplayers or "" )
         local authHex = GTowerServers:NormalizeHexPayload( syncRes[1].gomap )
+        local loadingSteamIDs, loadingErr, loadingRowFound = GetPendingLoadingSteamIDs()
+
+        GTowerServers:Trace(
+            "gate",
+            "PollGoMap loading batch hasRow=", tostring( loadingRowFound ),
+            " steamidsLen=", tostring( string.len( loadingSteamIDs or "" ) ),
+            " err=", tostring( loadingErr )
+        )
+
+        if loadingErr then
+            SQLLog( "error", "Gatekeeper gm_loading lookup failed for server ", ServerID, ": ", tostring( loadingErr ) )
+            return
+        end
+
+        if loadingSteamIDs == "" then
+            local now = CurTime()
+
+            if gateKeep.GoMapWaitingForLoadingSince == 0 then
+                gateKeep.GoMapWaitingForLoadingSince = now
+                GTowerServers:Trace( "gate", "PollGoMap found gm_gomap without gm_loading batch; waiting grace=", tostring( gateKeep.GoMapLoadingGrace ) )
+                return
+            end
+
+            local age = now - gateKeep.GoMapWaitingForLoadingSince
+            GTowerServers:Trace( "gate", "PollGoMap waiting for gm_loading batch age=", tostring( age ) )
+
+            if age < gateKeep.GoMapLoadingGrace then
+                return
+            end
+
+            SQLLog( "multiserver", "Discarding stale gm_gomap for server ", ServerID, " map ", targetMap )
+
+            local staleDeleteErr = DeletePendingGoMap( ServerID )
+            GTowerServers:Trace( "gate", "PollGoMap stale row delete err=", tostring( staleDeleteErr ) )
+            if staleDeleteErr then
+                SQLLog( "error", "Gatekeeper failed to delete stale gm_gomap for server ", ServerID, ": ", tostring( staleDeleteErr ) )
+            end
+
+            gateKeep.GoMapWaitingForLoadingSince = 0
+            return
+        end
+
+        gateKeep.GoMapWaitingForLoadingSince = 0
 
         SQLLog( "multiserver", "Gatekeeper sync consumed gm_gomap for server ", ServerID, " map ", targetMap, " authhex_len ", string.len( authHex or "" ) )
         GTowerServers:Trace( "gate", "PollGoMap sync normalized authHexLen=", tostring( string.len( authHex or "" ) ), " rawLen=", tostring( string.len( tostring( syncRes[1].gomap or "" ) ) ) )
 
         PromotePrivateServerFromGoMap( targetMap, authHex )
-        Database.Query( "DELETE FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";" )
+        local deleteErr = DeletePendingGoMap( ServerID )
+        GTowerServers:Trace( "gate", "PollGoMap consumed row delete err=", tostring( deleteErr ) )
+        if deleteErr then
+            SQLLog( "error", "Gatekeeper failed to delete consumed gm_gomap for server ", ServerID, ": ", tostring( deleteErr ) )
+        end
         return
     end
 
@@ -270,6 +390,7 @@ function gateKeep:PollGoMap( ServerID )
             end
 
             if type( res ) != "table" or table.Count( res ) == 0 then
+                gateKeep.GoMapWaitingForLoadingSince = 0
                 return
             end
 
@@ -292,6 +413,31 @@ function gateKeep:GrabGoingToServer(ServerID)
     GTowerServers:Trace( "gate", "GrabGoingToServer file=", txt, " exists=", tostring( file.Exists( txt, "DATA" ) ) )
 
     if file.Exists(txt, "DATA") then
+        if GTowerServers:GetState() == 3 then
+            GTowerServers:Trace( "gate", "GrabGoingToServer removing local auth file because server already in state 3" )
+            file.Delete( txt )
+            return
+        end
+
+        local loadingSteamIDs, loadingErr, loadingRowFound = GetPendingLoadingSteamIDs()
+        GTowerServers:Trace(
+            "gate",
+            "GrabGoingToServer loading batch hasRow=", tostring( loadingRowFound ),
+            " steamidsLen=", tostring( string.len( loadingSteamIDs or "" ) ),
+            " err=", tostring( loadingErr )
+        )
+
+        if loadingErr then
+            SQLLog( "error", "Gatekeeper gm_loading lookup failed while reading auth file for server ", ServerID, ": ", tostring( loadingErr ) )
+            return
+        end
+
+        if loadingSteamIDs == "" then
+            GTowerServers:Trace( "gate", "GrabGoingToServer deleting stale auth file because gm_loading is empty" )
+            file.Delete( txt )
+            return
+        end
+
         local contents = file.Read(txt, "DATA") or ""
         GTowerServers:Trace( "gate", "GrabGoingToServer contentsLen=", tostring( string.len( contents ) ) )
 

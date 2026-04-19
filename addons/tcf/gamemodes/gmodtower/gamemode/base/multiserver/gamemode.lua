@@ -76,6 +76,14 @@ local function PollBufferGoMap()
         return
     end
 
+    if gateKeep and gateKeep.PollGoMap then
+        if timer.Exists( "GTowerBufferGoMap" ) then
+            GTowerServers:Trace( "gomap", "PollBufferGoMap stopping timer because gatekeeper handles private gm_gomap" )
+            timer.Remove( "GTowerBufferGoMap" )
+        end
+        return
+    end
+
     if not Database or not Database.IsConnected or not Database.IsConnected() then
         GTowerServers:Trace( "gomap", "PollBufferGoMap skipped; DB disconnected" )
         return
