@@ -28,6 +28,7 @@ local function GoMapResult(res, status, err)
     InQuery = false
 
     if status != QUERY_SUCCESS then
+        SQLLog( "error", "gm_gomap lookup failed for server ", GTowerServers:GetServerId(), ": ", tostring( err ) )
         return
     end
 
@@ -37,6 +38,8 @@ local function GoMapResult(res, status, err)
 
     local targetMap = string.lower(res[1].authplayers or "")
     local authHex = res[1].gomap or ""
+
+    SQLLog( "multiserver", "Consumed gm_gomap for server ", GTowerServers:GetServerId(), " map ", targetMap, " authhex_len ", string.len( authHex or "" ) )
 
     file.Write("authedusers" .. tostring(GTowerServers:GetServerId()) .. ".txt", authHex)
     PromotePrivateServer(authHex)
@@ -51,39 +54,46 @@ local function GoMapResult(res, status, err)
     end
 end
 
-local function StartBufferGoMapWatcher()
-    if hook.GetTable().Think and hook.GetTable().Think.BufferGoMap then
+local function PollBufferGoMap()
+    local Gamemode = GTowerServers:Self()
+
+    if not Gamemode or Gamemode.Private != true then
+        if timer.Exists( "GTowerBufferGoMap" ) then
+            timer.Remove( "GTowerBufferGoMap" )
+        end
         return
     end
 
-    hook.Add("Think", "BufferGoMap", function()
-        local Gamemode = GTowerServers:Self()
+    if not Database or not Database.IsConnected or not Database.IsConnected() then
+        return
+    end
 
-        if not Gamemode or Gamemode.Private != true then
-            hook.Remove("Think", "BufferGoMap")
-            return
-        end
+    if GTowerServers:GetState() != 1 or InQuery == true then
+        return
+    end
 
-        if not Database or not Database.IsConnected or not Database.IsConnected() then
-            return
-        end
+    if LastThink > CurTime() then
+        return
+    end
 
-        if GTowerServers:GetState() != 1 or InQuery == true then
-            return
-        end
+    LastThink = CurTime() + 0.5
+    InQuery = true
 
-        if LastThink > CurTime() then
-            return
-        end
+    Database.Query(
+        "SELECT authplayers, HEX(`gomap`) as `gomap` FROM `gm_gomap` WHERE `serverid` = " .. GTowerServers:GetServerId() .. ";",
+        GoMapResult
+    )
+end
 
-        LastThink = CurTime() + 0.5
-        InQuery = true
+local function StartBufferGoMapWatcher()
+    RunConsoleCommand( "sv_hibernate_think", "1" )
 
-        Database.Query(
-            "SELECT authplayers, HEX(`gomap`) as `gomap` FROM `gm_gomap` WHERE `serverid` = " .. GTowerServers:GetServerId() .. ";",
-            GoMapResult
-        )
-    end)
+    if timer.Exists( "GTowerBufferGoMap" ) then
+        return
+    end
+
+    timer.Create( "GTowerBufferGoMap", 0.5, 0, PollBufferGoMap )
+    PollBufferGoMap()
 end
 
 hook.Add("DatabaseConnected", "MultiServerBufferMap", StartBufferGoMapWatcher)

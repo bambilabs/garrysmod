@@ -64,6 +64,15 @@ end
 
 function ServerMeta:SetMap( map, playershex )
 
-	Database.Query( "REPLACE INTO gm_gomap VALUES (" .. self.Id .. ", '" .. map .. "', " .. playershex .. ")" )
+	local query = "REPLACE INTO `gm_gomap` (`serverid`, `authplayers`, `gomap`) VALUES (" .. self.Id .. ", " .. Database.Escape( map, true ) .. ", " .. playershex .. ");"
+
+	Database.Query( query, function( res, status, err )
+		if status != QUERY_SUCCESS then
+			SQLLog( "error", "Failed to queue gm_gomap for server ", self.Id, " map ", tostring( map ), ": ", tostring( err ) )
+			return
+		end
+
+		SQLLog( "multiserver", "Queued gm_gomap for server ", self.Id, " map ", tostring( map ) )
+	end )
 
 end
