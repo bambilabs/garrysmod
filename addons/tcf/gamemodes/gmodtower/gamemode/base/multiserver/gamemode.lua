@@ -38,7 +38,7 @@ local function GoMapResult(res, status, err)
     local targetMap = string.lower(res[1].authplayers or "")
     local authHex = res[1].gomap or ""
 
-    file.Write("authedusers" .. tostring(GTowerServers:GetServerId()) .. ".txt", authHex, "DATA")
+    file.Write("authedusers" .. tostring(GTowerServers:GetServerId()) .. ".txt", authHex)
     PromotePrivateServer(authHex)
 
     Database.Query("DELETE FROM `gm_gomap` WHERE `serverid` = " .. GTowerServers:GetServerId() .. ";")

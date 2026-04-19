@@ -134,7 +134,13 @@ function gateKeep:GrabGoingToServer(ServerID)
     local txt = "authedusers" .. tostring(GTowerServers:GetServerId()) .. ".txt"
 
     if file.Exists(txt, "DATA") then
-        local contents = file.Read(txt)
+        local contents = file.Read(txt, "DATA") or ""
+
+        if contents == "" then
+            file.Delete(txt)
+            return
+        end
+
         local ips = GTowerServers:PlayerListToIDs(contents)
 
         gateKeep.AuthorizedPlayers = {}
