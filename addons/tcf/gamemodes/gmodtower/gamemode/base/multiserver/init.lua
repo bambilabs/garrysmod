@@ -101,8 +101,46 @@ local function GetPlayerSQLIdHex()
 
 end
 
+local function MaybePollPrivateGoMap( reason )
+
+	if not SERVER or not gateKeep or not gateKeep.PollGoMap or not GTowerServers or not GTowerServers.GetServerId then
+		return
+	end
+
+	local Gamemode = GTowerServers:Self()
+	if not Gamemode or Gamemode.Private != true then
+		return
+	end
+
+	local ServerID = GTowerServers:GetServerId()
+
+	GTowerServers:Trace(
+		"gomap-sync",
+		"MaybePollPrivateGoMap reason=", tostring( reason ),
+		" server=", tostring( ServerID ),
+		" state=", tostring( GTowerServers:GetState() ),
+		" dbConnected=", tostring( Database.IsConnected() )
+	)
+
+	if gateKeep.GrabGoingToServer then
+		gateKeep:GrabGoingToServer( ServerID )
+	end
+
+	if GTowerServers:GetState() == 1 then
+		gateKeep:PollGoMap( ServerID )
+	end
+
+end
+
 local function GTowerServerDatabaseResult( res, status, err )
 	UpdateInProgress = false
+
+	GTowerServers:Trace(
+		"update",
+		"GTowerServerDatabaseResult status=", tostring( status ),
+		" rows=", tostring( istable( res ) and table.Count( res ) or "nil" ),
+		" err=", tostring( err )
+	)
 
 	if status != QUERY_SUCCESS then
 		return
@@ -159,12 +197,15 @@ function GTowerServers:UpdateDatabase( playerstack )
 	UpdateInProgress = true
 
 	Database.Query( query, GTowerServerDatabaseResult )
+	MaybePollPrivateGoMap( "UpdateDatabase" )
 
 end
 
 function UpdateMultiServer()
+	GTowerServers:Trace( "update", "UpdateMultiServer invoked" )
 	GTowerServers:UpdateDatabase()
 	if timer.Exists("GTowerServersRepeat") then
+		GTowerServers:Trace( "timer", "UpdateMultiServer restarting GTowerServersRepeat" )
 		timer.Start("GTowerServersRepeat")
 	end
 end
@@ -223,3 +264,40 @@ end )
 timer.Simple(1, function()
 	BootMultiServerSync()
 end)
+
+timer.Simple(3, function()
+	GTowerServers:Trace(
+		"boot",
+		"Timer snapshot repeat=", tostring( timer.Exists( "GTowerServersRepeat" ) ),
+		" private=", tostring( timer.Exists( "GTowerServersGoListPrivate" ) ),
+		" buffer=", tostring( timer.Exists( "GTowerBufferGoMap" ) ),
+		" dbConnected=", tostring( Database and Database.IsConnected and Database.IsConnected() ),
+		" state=", tostring( GTowerServers:GetState() )
+	)
+end)
+
+local function PrintMultiServerDiagLine( ply, msg )
+	if IsValid( ply ) then
+		ply:PrintMessage( HUD_PRINTCONSOLE, msg )
+	else
+		MsgN( msg )
+	end
+end
+
+concommand.Add( "gmt_multiserver_diag", function( ply )
+	if IsValid( ply ) and not ply:IsAdmin() then return end
+
+	local Gamemode = GTowerServers:Self()
+	local Hooks = hook.GetTable()
+	local DatabaseConnectedHooks = Hooks.DatabaseConnected or {}
+	local DatabaseUpdatedHooks = Hooks.GTowerServersDatabaseUpdated or {}
+
+	PrintMultiServerDiagLine( ply, "[MSDBG][diag] serverid=" .. tostring( GTowerServers:GetServerId() ) .. " gamemode=" .. tostring( GTowerServers:Gamemode() ) .. " private=" .. tostring( Gamemode and Gamemode.Private ) .. " state=" .. tostring( GTowerServers:GetState() ) )
+	PrintMultiServerDiagLine( ply, "[MSDBG][diag] db_connected=" .. tostring( Database.IsConnected() ) .. " repeat_timer=" .. tostring( timer.Exists( "GTowerServersRepeat" ) ) .. " private_timer=" .. tostring( timer.Exists( "GTowerServersGoListPrivate" ) ) .. " gomap_timer=" .. tostring( timer.Exists( "GTowerBufferGoMap" ) ) )
+	PrintMultiServerDiagLine( ply, "[MSDBG][diag] db_hooks core=" .. tostring( DatabaseConnectedHooks.GTowerServersConnect != nil ) .. " gate=" .. tostring( DatabaseConnectedHooks.GMTGateKeepInit != nil ) .. " buffer=" .. tostring( DatabaseConnectedHooks.MultiServerBufferMap != nil ) )
+	PrintMultiServerDiagLine( ply, "[MSDBG][diag] updated_hooks gomap_fallback=" .. tostring( DatabaseUpdatedHooks.MultiServerBufferMapFallback != nil ) )
+
+	if gateKeep then
+		PrintMultiServerDiagLine( ply, "[MSDBG][diag] gate inflight=" .. tostring( gateKeep.GoMapQueryInFlight ) .. " authorized_count=" .. tostring( table.Count( gateKeep.AuthorizedPlayers or {} ) ) )
+	end
+end )
