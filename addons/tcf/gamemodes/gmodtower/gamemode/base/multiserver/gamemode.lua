@@ -3,6 +3,10 @@ local LastThink = 0
 local InQuery = false
 local InQuerySince = 0
 
+if SERVER and GTowerServers and GTowerServers.Trace then
+    GTowerServers:Trace( "load", "base/multiserver/gamemode.lua loaded" )
+end
+
 local function PromotePrivateServer(authHex)
     if not authHex or authHex == "" then return end
 

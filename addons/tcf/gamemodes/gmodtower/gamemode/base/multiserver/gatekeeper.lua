@@ -5,6 +5,10 @@ gateKeep.AdminBypass = true
 gateKeep.AuthorizedPlayers = {}
 gateKeep.GoMapQueryInFlight = false
 
+if SERVER and GTowerServers and GTowerServers.Trace then
+    GTowerServers:Trace( "load", "base/multiserver/gatekeeper.lua loaded" )
+end
+
 function GetAuthorizedPlayers()
 
     return gateKeep.AuthorizedPlayers

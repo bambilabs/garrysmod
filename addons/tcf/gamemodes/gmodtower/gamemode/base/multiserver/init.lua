@@ -2,11 +2,35 @@
 AddCSLuaFile("shared.lua")
 AddCSLuaFile("cl_init.lua")
 include("shared.lua")
+
+if SERVER and GTowerServers and GTowerServers.Trace then
+	GTowerServers:Trace( "load", "base/multiserver/init.lua begin" )
+end
+
+if SERVER and GTowerServers and GTowerServers.Trace then
+	GTowerServers:Trace( "load", "including game.lua" )
+end
 include("game.lua")
+if SERVER and GTowerServers and GTowerServers.Trace then
+	GTowerServers:Trace( "load", "including password.lua" )
+end
 include("password.lua")
+if SERVER and GTowerServers and GTowerServers.Trace then
+	GTowerServers:Trace( "load", "including gamemode.lua" )
+end
 include("gamemode.lua")
+if SERVER and GTowerServers and GTowerServers.Trace then
+	GTowerServers:Trace( "load", "including hex.lua" )
+end
 include("hex.lua")
+if SERVER and GTowerServers and GTowerServers.Trace then
+	GTowerServers:Trace( "load", "including gatekeeper.lua" )
+end
 include("gatekeeper.lua")
+
+if SERVER and GTowerServers and GTowerServers.Trace then
+	GTowerServers:Trace( "load", "base/multiserver/init.lua includes complete" )
+end
 
 /*
 	STATE LIST
