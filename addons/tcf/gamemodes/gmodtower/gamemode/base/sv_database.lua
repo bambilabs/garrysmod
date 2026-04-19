@@ -9,6 +9,8 @@ end
 // Setup Database Connection
 
 local function SetupDatabase()
+    RunConsoleCommand( "sv_hibernate_think", "1" )
+
     if LoadTCFEnv then
         LoadTCFEnv()
     end

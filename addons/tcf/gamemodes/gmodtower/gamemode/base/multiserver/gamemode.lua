@@ -97,6 +97,7 @@ local function StartBufferGoMapWatcher()
 end
 
 hook.Add("DatabaseConnected", "MultiServerBufferMap", StartBufferGoMapWatcher)
+hook.Add("GTowerServersDatabaseUpdated", "MultiServerBufferMapFallback", PollBufferGoMap)
 
 timer.Simple(1, function()
     if SERVER and Database and Database.IsConnected and Database.IsConnected() then
