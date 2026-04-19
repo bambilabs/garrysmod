@@ -27,6 +27,29 @@ if SERVER then
 	end
 end
 
+function GTowerServers:NormalizeHexPayload( value )
+	if value == nil then
+		return ""
+	end
+
+	value = tostring( value )
+
+	if string.sub( value, 1, 2 ) == "0x" or string.sub( value, 1, 2 ) == "0X" then
+		return string.upper( string.sub( value, 3 ) )
+	end
+
+	if string.match( value, "^[0-9A-Fa-f]+$" ) then
+		return string.upper( value )
+	end
+
+	local bytes = {}
+	for i = 1, string.len( value ) do
+		bytes[ i ] = string.format( "%02X", string.byte( value, i ) )
+	end
+
+	return table.concat( bytes )
+end
+
 GTowerServers.GamemodeNames = file.Find("gmodtower/gamemode/base/multiserver/gamemodes/*.lua", "LUA") 
 GTowerServers.Gamemodes = {}
 for _, v in pairs( GTowerServers.GamemodeNames ) do

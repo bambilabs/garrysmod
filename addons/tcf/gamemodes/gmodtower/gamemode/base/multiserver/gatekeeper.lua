@@ -4,6 +4,7 @@ gateKeep.MaxSlots = 0
 gateKeep.AdminBypass = true
 gateKeep.AuthorizedPlayers = {}
 gateKeep.GoMapQueryInFlight = false
+gateKeep.GoMapQuerySince = 0
 
 if SERVER and GTowerServers and GTowerServers.Trace then
     GTowerServers:Trace( "load", "base/multiserver/gatekeeper.lua loaded" )
@@ -166,6 +167,12 @@ end
 function gateKeep:PollGoMap( ServerID )
     GTowerServers:Trace( "gate", "PollGoMap tick server=", tostring( ServerID ), " state=", tostring( GTowerServers:GetState() ), " inFlight=", tostring( gateKeep.GoMapQueryInFlight ) )
 
+    if gateKeep.GoMapQueryInFlight == true and gateKeep.GoMapQuerySince > 0 and ( CurTime() - gateKeep.GoMapQuerySince ) > 10 then
+        GTowerServers:Trace( "gate", "PollGoMap resetting stale inFlight query for server=", tostring( ServerID ) )
+        gateKeep.GoMapQueryInFlight = false
+        gateKeep.GoMapQuerySince = 0
+    end
+
     if gateKeep.GoMapQueryInFlight == true then
         return
     end
@@ -180,12 +187,14 @@ function gateKeep:PollGoMap( ServerID )
     end
 
     gateKeep.GoMapQueryInFlight = true
+    gateKeep.GoMapQuerySince = CurTime()
     GTowerServers:Trace( "gate", "PollGoMap querying gm_gomap for server=", tostring( ServerID ) )
 
     Database.Query(
-        "SELECT `authplayers`, HEX(`gomap`) as `gomap` FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";",
+        "SELECT `authplayers`, `gomap` FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";",
         function( res, status, err )
             gateKeep.GoMapQueryInFlight = false
+            gateKeep.GoMapQuerySince = 0
             GTowerServers:Trace( "gate", "PollGoMap result status=", tostring( status ), " rows=", tostring( istable( res ) and table.Count( res ) or "nil" ), " err=", tostring( err ) )
 
             if status != QUERY_SUCCESS then
@@ -198,9 +207,10 @@ function gateKeep:PollGoMap( ServerID )
             end
 
             local targetMap = string.lower( res[1].authplayers or "" )
-            local authHex = res[1].gomap or ""
+            local authHex = GTowerServers:NormalizeHexPayload( res[1].gomap )
 
             SQLLog( "multiserver", "Gatekeeper consumed gm_gomap for server ", ServerID, " map ", targetMap, " authhex_len ", string.len( authHex or "" ) )
+            GTowerServers:Trace( "gate", "PollGoMap normalized authHexLen=", tostring( string.len( authHex or "" ) ), " rawLen=", tostring( string.len( tostring( res[1].gomap or "" ) ) ) )
 
             PromotePrivateServerFromGoMap( targetMap, authHex )
             Database.Query( "DELETE FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";" )

@@ -47,10 +47,10 @@ local function GoMapResult(res, status, err)
     end
 
     local targetMap = string.lower(res[1].authplayers or "")
-    local authHex = res[1].gomap or ""
+    local authHex = GTowerServers:NormalizeHexPayload( res[1].gomap )
 
     SQLLog( "multiserver", "Consumed gm_gomap for server ", GTowerServers:GetServerId(), " map ", targetMap, " authhex_len ", string.len( authHex or "" ) )
-    GTowerServers:Trace( "gomap", "Consumed row targetMap=", targetMap, " authHex=", tostring( authHex ) )
+    GTowerServers:Trace( "gomap", "Consumed row targetMap=", targetMap, " authHex=", tostring( authHex ), " rawLen=", tostring( string.len( tostring( res[1].gomap or "" ) ) ) )
 
     file.Write("authedusers" .. tostring(GTowerServers:GetServerId()) .. ".txt", authHex)
     PromotePrivateServer(authHex)
@@ -103,7 +103,7 @@ local function PollBufferGoMap()
     GTowerServers:Trace( "gomap", "PollBufferGoMap querying gm_gomap for server ", tostring( GTowerServers:GetServerId() ) )
 
     Database.Query(
-        "SELECT authplayers, HEX(`gomap`) as `gomap` FROM `gm_gomap` WHERE `serverid` = " .. GTowerServers:GetServerId() .. ";",
+        "SELECT authplayers, `gomap` FROM `gm_gomap` WHERE `serverid` = " .. GTowerServers:GetServerId() .. ";",
         GoMapResult
     )
 end
