@@ -153,6 +153,10 @@ if SERVER then
 
 
 		local kart = ents.Create( "sk_kart" )
+		if !IsValid( kart ) then return end
+
+		local scale = GTowerModels.GetScale( self:GetModel() ) or 1
+		kart.DesiredModel = scale < 1 and kart.ModelSmall or kart.Model
 
 		kart:SetPos( pos or ( self:GetPos() + Vector( 0, 0, 25 ) ) )
 
@@ -183,20 +187,6 @@ if SERVER then
 
 
 		self:SetNWEntity( "Kart", kart )
-
-
-
-		local scale = GTowerModels.GetScale( self:GetModel() )
-
-		if scale < 1 then
-
-			kart:SetModel( kart.ModelSmall )
-
-		else
-
-			kart:SetModel( kart.Model )
-
-		end
 
 
 

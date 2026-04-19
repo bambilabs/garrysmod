@@ -476,6 +476,7 @@ end )
 
 function GM:Complete( ply )
   local hadFinishers = GAMEMODE:GetFinishedPlayers() > 0
+  local kart = ply:GetKart()
 
   ply:SetTeam( TEAM_FINISHED )
   ply:ClearItems()
@@ -487,12 +488,14 @@ function GM:Complete( ply )
     music.Play( 1, MUSIC_LOSE, ply )
   end
 
-  local vPoint = ply:GetKart():GetPos()
-  local effectdata = EffectData()
-  effectdata:SetOrigin( vPoint )
-  util.Effect( "confetti", effectdata, true, true )
+  if IsValid( kart ) then
+    local vPoint = kart:GetPos()
+    local effectdata = EffectData()
+    effectdata:SetOrigin( vPoint )
+    util.Effect( "confetti", effectdata, true, true )
 
-  ply:GetKart():EmitSound( "gmodtower/misc/confetti.wav", 80, math.random(125,150) )
+    kart:EmitSound( "gmodtower/misc/confetti.wav", 80, math.random(125,150) )
+  end
 
 	ply:SetNWFloat( "FinishedTime", CurTime() )
 
@@ -513,6 +516,7 @@ end
 function GM:Lap( ply )
 
   local NewLap = ply:GetLap() + 1
+  local kart = ply:GetKart()
 
   if (ply:GetBestLapTime() == 0 || self:GetTimeElapsed(ply:GetLapTime()) < ply:GetBestLapTime()) then
     ply:SetBestLapTime( self:GetTimeElapsed(ply:GetLapTime()) )
@@ -527,12 +531,14 @@ function GM:Lap( ply )
 
   ply:SetLap( ply:GetLap() + 1 )
 
-  local vPoint = ply:GetKart():GetPos()
-  local effectdata = EffectData()
-  effectdata:SetOrigin( vPoint )
-  util.Effect( "confetti", effectdata, true, true )
+  if IsValid( kart ) then
+    local vPoint = kart:GetPos()
+    local effectdata = EffectData()
+    effectdata:SetOrigin( vPoint )
+    util.Effect( "confetti", effectdata, true, true )
 
-  ply:GetKart():EmitSound( "gmodtower/misc/confetti.wav", 80, math.random(125,150) )
+    kart:EmitSound( "gmodtower/misc/confetti.wav", 80, math.random(125,150) )
+  end
 
 end
 

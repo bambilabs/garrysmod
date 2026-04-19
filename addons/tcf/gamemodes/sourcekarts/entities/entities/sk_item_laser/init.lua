@@ -11,6 +11,9 @@ end
 function ENT:Think()
   self:UpdateEndPos()
     if ( IsValid( self.HitEntity ) && self.HitEntity:GetClass() == "sk_kart" && !self.HitEntity:IsSpinning() ) then
+      local attacker = self:GetOwner()
+      local victim = self.HitEntity:GetOwner()
+      if !IsValid( attacker ) || !IsValid( victim ) then return end
 
       if self.HitEntity:GetIsInvincible() then
         self.HitEntity:EmitSound( SOUND_REFLECT, 80 )
@@ -18,18 +21,21 @@ function ENT:Think()
       end
 
       if GAMEMODE:IsBattle() then
-        self.HitEntity:GetOwner():TakeBattleDamage( self:GetOwner() )
+        victim:TakeBattleDamage( attacker )
       end
 
-      self.HitEntity:Spin( self:GetOwner() )
+      self.HitEntity:Spin( attacker )
 
       net.Start( "HUDMessage" )
-        net.WriteString( "YOU HIT "..string.upper( self.HitEntity:GetOwner():Name() ) )
-      net.Send( self:GetOwner() )
+        net.WriteString( "YOU HIT "..string.upper( victim:Name() ) )
+      net.Send( attacker )
 
-	  self:GetOwner():AddAchievement( ACHIEVEMENTS.SKLASER, 1 )
+	  attacker:AddAchievement( ACHIEVEMENTS.SKLASER, 1 )
 
-      self:GetOwner():GetKart():EmitSound(SOUND_LASERHIT,80)
+      local attackerKart = attacker:GetKart()
+      if IsValid( attackerKart ) then
+        attackerKart:EmitSound(SOUND_LASERHIT,80)
+      end
 
     end
 

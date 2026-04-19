@@ -51,7 +51,12 @@ StickMaterials = { // Materials that maintain its own surface gravity
 
 function ENT:GetKart()
 
-	return self:GetOwner():GetKart()
+	local owner = self:GetOwner()
+	if !IsValid( owner ) then
+		return NULL
+	end
+
+	return owner:GetKart()
 
 end
 

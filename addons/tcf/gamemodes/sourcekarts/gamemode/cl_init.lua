@@ -66,16 +66,13 @@ end
 
 
 function GM:OverrideHatEntity(ply)
+	if !IsValid( ply ) then return end
 
-	if LocalPlayer() == ply then
-		return LocalPlayer():GetKart().PlayerModel
-	end
+	local kart = ply:GetKart()
 
-	if IsValid( ply:GetKart() ) then
+	if !IsValid( kart ) || !IsValid( kart.PlayerModel ) then return end
 
-		return ply:GetKart().PlayerModel
-
-	end
+	return kart.PlayerModel
 
 
 

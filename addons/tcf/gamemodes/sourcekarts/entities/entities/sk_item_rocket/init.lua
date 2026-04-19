@@ -51,6 +51,7 @@ function ENT:DoExplosion()
 end
 
 function ENT:HitPlayer( attacker, victim, kart )
+  if !IsValid( attacker ) || !IsValid( victim ) || !IsValid( kart ) then return end
 
   if kart:GetIsInvincible() then
     kart:EmitSound( SOUND_REFLECT, 80 )
@@ -71,6 +72,7 @@ end
 
 function ENT:PhysicsCollide( data, collider )
     local ent = data.HitEntity
+    if !IsValid( ent ) then return end
 
       if ent:GetClass() == "worldspawn" && data.OurOldVelocity:Length() < 800 then
         self:DoExplosion()

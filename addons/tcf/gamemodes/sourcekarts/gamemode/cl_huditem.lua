@@ -134,9 +134,9 @@ end
 
 local function Draw()
 
-	if !LocalPlayer():GetKart() then
-		ClearCards()
-	end
+	if !IsValid( LocalPlayer():GetKart() ) then
+		ClearCards()
+	end
 
 	// Where the card ends up
 	local cy = ScrH() - 150

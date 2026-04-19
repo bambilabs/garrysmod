@@ -3,8 +3,41 @@ AddCSLuaFile("cl_init.lua")
 
 include("shared.lua")
 
+local function SafeGetAttachment( ent, name )
+	if !IsValid( ent ) then return nil end
+
+	local id = ent:LookupAttachment( name )
+	if !id || id <= 0 then return nil end
+
+	return ent:GetAttachment( id )
+end
+
+local function RequestOwnerReset( kart )
+	if !IsValid( kart ) || !GAMEMODE then return false end
+
+	local owner = kart:GetOwner()
+	if !IsValid( owner ) then return false end
+
+	if GAMEMODE:GetState() == STATE_BATTLE then
+		return GAMEMODE:RespawnPlayerAtBattleSpawn( owner ) == true
+	end
+
+	local state = GAMEMODE:GetState()
+	local canResetRace = state == STATE_READY || state == STATE_PLAYING || state == STATE_NEXTTRACK || state == STATE_ENDING
+	if !canResetRace || owner:Team() != TEAM_PLAYING then
+		return false
+	end
+
+	return GAMEMODE:RespawnPlayerAtRacePoint( owner, state != STATE_READY ) == true
+end
+
 function ENT:Initialize()
-	self:SetModel(self.Model)
+	local model = self.DesiredModel or self:GetModel()
+	if !model || model == "" then
+		model = self.Model
+	end
+
+	self:SetModel( model )
 	--self:SetSolid(SOLID_VPHYSICS)
 	--self:PhysicsInit(SOLID_VPHYSICS)
 	--self:SetMoveType(MOVETYPE_VPHYSICS)
@@ -14,12 +47,14 @@ function ENT:Initialize()
 	self:PhysicsInitBox( Vector(-25,-15,0), Vector(25,15,25) )
 
 	local phys = self:GetPhysicsObjectNum(0)
-	phys:SetMass(100)
-	--phys:SetDamping( 0.05, 1 )
-	phys:Wake()
-	phys:SetMaterial("kart") // Kart
+	if IsValid( phys ) then
+		phys:SetMass(100)
+		--phys:SetDamping( 0.05, 1 )
+		phys:Wake()
+		phys:SetMaterial("kart") // Kart
 
-	phys:EnableGravity(false)
+		phys:EnableGravity(false)
+	end
 
 	self:SetCustomCollisionCheck( true )
 
@@ -32,7 +67,9 @@ function ENT:Initialize()
 
 	for k,v in pairs(self.Wheels) do
 
-		local att = self:GetAttachment( self:LookupAttachment( v.Att ) )
+		local att = SafeGetAttachment( self, v.Att )
+		if !att then continue end
+
 		local pos, attang = att.Pos, att.Ang
 
 		local e = ents.Create("sk_wheel")
@@ -52,7 +89,7 @@ function ENT:Initialize()
 end
 
 function ENT:OnRemove()
-    for k,v in pairs( self.WeightsNWheels ) do
+    for k,v in pairs( self.WeightsNWheels or {} ) do
 			if IsValid(v) then v:Remove() end
 
 		end
@@ -67,19 +104,22 @@ local FlashSound = Sound("items/flashlight1.wav")
 function ENT:ToggleFlash(on)
 
 	local kart = self
-	local ply = self:GetOwner()
-
-	if !kart.FlashLightOn then kart.FlashLightOn = false end
-
-	kart.FlashLightOn = !kart.FlashLightOn
+	kart.FlashLightOn = on == true
 
 	kart:SetNWBool("FlashOn",kart.FlashLightOn)
 
 	if on then
+local att = SafeGetAttachment( kart, "light_left" )
+local att2 = SafeGetAttachment( kart, "light_right" )
+if !att || !att2 then
+	kart.FlashLightOn = false
+	kart:SetNWBool( "FlashOn", false )
+	return
+end
+
 kart.flashlight = ents.Create( "env_projectedtexture" )
 kart.flashlight:SetParent( kart )
 
-local att = kart:GetAttachment( kart:LookupAttachment( "light_left" ) )
 local pos, attang = att.Pos, att.Ang
 
 -- The local positions are the offsets from parent..
@@ -106,8 +146,7 @@ kart.flashlight:Input( "SpotlightTexture", NULL, NULL, "effects/flashlight001" )
 kart.flashlight2 = ents.Create( "env_projectedtexture" )
 kart.flashlight2:SetParent( kart )
 
-local att = kart:GetAttachment( kart:LookupAttachment( "light_right" ) )
-local pos, attang = att.Pos, att.Ang
+local pos, attang = att2.Pos, att2.Ang
 
 -- The local positions are the offsets from parent..
 kart.flashlight2:SetPos( pos )
@@ -187,16 +226,18 @@ function ENT:SetBoostPadActive( active, linger )
 end
 
 function ENT:Think()
+	local ply = self:GetOwner()
+	if !IsValid( ply ) then return end
 
 	if game.GetMap() == "gmt_sk_island02" && GAMEMODE:GetState() == STATE_BATTLE then
 
 			if self:GetPos().z < 7000 then
-				self:GetOwner():SendLua([[RunConsoleCommand("sk_reset")]])
+				RequestOwnerReset( self )
 			end
 	end
 
 	if self:TimeToDie() then
-		self:GetOwner():SendLua([[RunConsoleCommand("sk_reset")]])
+		RequestOwnerReset( self )
 	end
 
     local phys = self:GetPhysicsObject()
@@ -210,10 +251,6 @@ function ENT:Think()
 		self.OldTraction = tractionType
 		self:OnMaterialChange( self.OldTraction )
 	end
-
-	local ply = self:GetOwner()
-
-	if !IsValid( ply ) then return end
 
 	if ply:KeyDown(IN_MOVELEFT) then
 		self:SetTurnAngleNet(-1)
@@ -245,7 +282,7 @@ function ENT:OnMaterialChange( mat )
 	if mat == "lava" then
 		timer.Simple(.25,function()
 			if IsValid(self) and mat == "lava" then
-				self:GetOwner():SendLua([[RunConsoleCommand("sk_reset")]])
+				RequestOwnerReset( self )
 			end
 		end)
 	end
@@ -301,22 +338,20 @@ function ENT:PhysicsCollide( data, collider )
     local ent = data.HitEntity
 
 		local ply = self:GetOwner()
+		if !IsValid( ply ) || !IsValid( ent ) then return end
 
-		local it = ply:GetActiveItem()
-
-		if it != nil then
-			it = ply:GetActiveItem().Name
-		end
-
+		local activeItem = ply:GetActiveItem()
+		local it = activeItem && activeItem.Name or nil
 		if it == nil then return end
 
 		if it != "Disco" then return end
 
-		if !IsValid(ply) then return end
-
 		if self:IsGhost() then return end
 
 		if ent:GetClass() == "sk_kart" then
+			local entOwner = ent:GetOwner()
+			if !IsValid( entOwner ) then return end
+
 			if !self.HitDelay then self.HitDelay = 0 end
 
 			if CurTime() < self.HitDelay then return end
@@ -324,37 +359,42 @@ function ENT:PhysicsCollide( data, collider )
 			self.HitDelay = CurTime() + 1
 
 			if GAMEMODE:IsBattle() then
-				ent:GetOwner():TakeBattleDamage( self:GetOwner() )
+				entOwner:TakeBattleDamage( ply )
 			end
 
 			ent:EmitSound( SOUND_REFLECT, 80 )
-			ent:Spin( self:GetOwner() )
+			ent:Spin( ply )
 			net.Start( "HUDMessage" )
-				net.WriteString( "YOU HIT "..string.upper( ent:GetOwner():Name() ) )
-			net.Send( self:GetOwner() )
+				net.WriteString( "YOU HIT "..string.upper( entOwner:Name() ) )
+			net.Send( ply )
 
 		elseif ent:GetClass() == "player" then
+			local entKart = ent:GetKart()
+			if !IsValid( entKart ) then return end
+
 			if !self.HitDelay then self.HitDelay = 0 end
 
 			if CurTime() < self.HitDelay then return end
 
 			self.HitDelay = CurTime() + 1
-			ent:GetKart():EmitSound( SOUND_REFLECT, 80 )
+			entKart:EmitSound( SOUND_REFLECT, 80 )
 
 			if GAMEMODE:IsBattle() then
 				ent:SetDeaths( ent:Deaths() + 1 )
-				ent:GetKart():SetIsGhost( true )
-				ent:GetKart():SetIsInvincible( true )
+				entKart:SetIsGhost( true )
+				entKart:SetIsInvincible( true )
 				timer.Simple(3,function()
-					ent:GetKart():SetIsGhost( false )
-					ent:GetKart():SetIsInvincible( false )
+					if !IsValid( entKart ) then return end
+
+					entKart:SetIsGhost( false )
+					entKart:SetIsInvincible( false )
 				end)
 			end
 
-			ent:GetKart():Spin( self:GetOwner() )
+			entKart:Spin( ply )
 			net.Start( "HUDMessage" )
 				net.WriteString( "YOU HIT "..string.upper( ent:Name() ) )
-			net.Send( self:GetOwner() )
+			net.Send( ply )
 		end
 
 end
@@ -364,6 +404,8 @@ function ENT:IsSpinning()
 end
 
 function ENT:Spin( ply, hitSelf )
+	local owner = self:GetOwner()
+
 	net.Start( "KartSpin" )
 		net.WriteEntity( self )
 	net.Broadcast()
@@ -371,12 +413,14 @@ function ENT:Spin( ply, hitSelf )
 	if IsValid(ply) then
 
 		ply:AddAchievement( ACHIEVEMENTS.SKHITPOWERUP, 1 )
-		self:GetOwner():AddAchievement( ACHIEVEMENTS.SKPOWERUP, 1 )
+		if IsValid( owner ) then
+			owner:AddAchievement( ACHIEVEMENTS.SKPOWERUP, 1 )
+		end
 
-		if !hitSelf then
+		if !hitSelf && IsValid( owner ) then
 			net.Start( "HUDMessage" )
 				net.WriteString( "YOU HAVE BEEN HIT BY "..string.upper( ply:Name() ) )
-			net.Send( self:GetOwner() )
+			net.Send( owner )
 		end
 
 	end
@@ -385,6 +429,8 @@ function ENT:Spin( ply, hitSelf )
 	self:EmitSound( SOUND_SPIN, 80 )
 
 	timer.Simple(1.5,function()
+		if !IsValid( self ) then return end
+
 		self.Spinning = false
 	end)
 
@@ -436,9 +482,8 @@ end
 
 function ENT:GetSetting( key )
 	--return self:UpdateHookedValue( key, self.Settings[ key ][1] )
-	if self.Settings && self.Settings[ key ] then
-		Val = self.Settings[ key ]
-	end
+	local Val = self.Settings && self.Settings[ key ] or nil
+	if !Val then return nil end
 
 	return Val[1]
 end
