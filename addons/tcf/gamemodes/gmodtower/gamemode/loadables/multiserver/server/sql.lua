@@ -64,9 +64,10 @@ end
 
 function ServerMeta:SetMap( map, playershex )
 
-	local query = "REPLACE INTO `gm_gomap` (`serverid`, `authplayers`, `gomap`) VALUES (" .. self.Id .. ", " .. Database.Escape( map, true ) .. ", " .. playershex .. ");"
+	local escapedPlayersHex = Database.Escape( playershex, true )
+	local query = "REPLACE INTO `gm_gomap` (`serverid`, `authplayers`, `gomap`) VALUES (" .. self.Id .. ", " .. Database.Escape( map, true ) .. ", " .. escapedPlayersHex .. ");"
 
-	GTowerServers:Trace( "lobby-setmap", "ServerMeta:SetMap server=", tostring( self.Id ), " map=", tostring( map ), " playershex=", tostring( playershex ) )
+	GTowerServers:Trace( "lobby-setmap", "ServerMeta:SetMap server=", tostring( self.Id ), " map=", tostring( map ), " playershex=", tostring( playershex ), " escaped=", tostring( escapedPlayersHex ) )
 
 	Database.Query( query, function( res, status, err )
 		GTowerServers:Trace( "lobby-setmap", "ServerMeta:SetMap result status=", tostring( status ), " err=", tostring( err ) )

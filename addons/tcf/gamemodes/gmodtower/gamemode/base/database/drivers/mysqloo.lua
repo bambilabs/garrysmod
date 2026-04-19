@@ -17,6 +17,8 @@ function DRIVER:constructor()
     }
 
     self.Object = nil
+    self.ActiveQueries = {}
+    self.NextQueryId = 0
 end
 
 function DRIVER:destructor() end
@@ -73,18 +75,74 @@ function DRIVER:query( str, callback )
     local db = self.Object
 
     local qu = db:query( str )
+    self.NextQueryId = self.NextQueryId + 1
+
+    local queryId = self.NextQueryId
+    local queryPreview = tostring( str or "" )
+    if string.len( queryPreview ) > 180 then
+        queryPreview = string.sub( queryPreview, 1, 180 ) .. "..."
+    end
+
+    self.ActiveQueries[ qu ] = {
+        id = queryId,
+        sql = queryPreview,
+    }
+
+    if GTowerServers and GTowerServers.Trace then
+        GTowerServers:Trace( "dbquery", "start id=", tostring( queryId ), " sql=", queryPreview )
+    end
 
     qu.onSuccess = function( q, data )
+        local active = self.ActiveQueries[ q ]
+        self.ActiveQueries[ q ] = nil
+
+        if GTowerServers and GTowerServers.Trace then
+            GTowerServers:Trace(
+                "dbquery",
+                "success id=", tostring( active and active.id or queryId ),
+                " rows=", tostring( istable( data ) and table.Count( data ) or "nil" )
+            )
+        end
+
         if callback then
-            callback( data, true, nil )
+            local ok, err = xpcall( function()
+                callback( data, true, nil )
+            end, debug.traceback )
+
+            if not ok then
+                ErrorNoHalt( "MySQLOO callback error for query #" .. tostring( active and active.id or queryId ) .. ": " .. tostring( err ) .. "\n" )
+            end
         end
     end
 
     qu.onError = function( q, err, sql )
+        local active = self.ActiveQueries[ q ]
+        self.ActiveQueries[ q ] = nil
+
+        if GTowerServers and GTowerServers.Trace then
+            GTowerServers:Trace(
+                "dbquery",
+                "error id=", tostring( active and active.id or queryId ),
+                " err=", tostring( err ),
+                " sql=", tostring( sql or active and active.sql or queryPreview )
+            )
+        end
+
         self:onerror( err, callback )
     end
 
     qu.onAborted = function( q )
+        local active = self.ActiveQueries[ q ]
+        self.ActiveQueries[ q ] = nil
+
+        if GTowerServers and GTowerServers.Trace then
+            GTowerServers:Trace(
+                "dbquery",
+                "aborted id=", tostring( active and active.id or queryId ),
+                " sql=", tostring( active and active.sql or queryPreview )
+            )
+        end
+
         self:onerror( "Query aborted.", callback )
     end 
 
