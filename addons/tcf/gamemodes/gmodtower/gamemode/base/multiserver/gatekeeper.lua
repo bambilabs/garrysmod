@@ -3,11 +3,38 @@ gateKeep = {}
 gateKeep.MaxSlots = 0
 gateKeep.AdminBypass = true
 gateKeep.AuthorizedPlayers = {}
+gateKeep.GoMapQueryInFlight = false
 
 function GetAuthorizedPlayers()
 
     return gateKeep.AuthorizedPlayers
 
+end
+
+local function PromotePrivateServerFromGoMap( targetMap, authHex )
+    if not authHex or authHex == "" then return end
+
+    local ips = GTowerServers:PlayerListToIDs( authHex )
+
+    gateKeep.AuthorizedPlayers = {}
+
+    SQLLog( "multiserver", "Authorized ips " .. table.concat( ips, ", " ) )
+    for _, ip in ipairs( ips ) do
+        gateKeep.AuthorizedPlayers[ ip ] = true
+    end
+
+    file.Write( "authedusers" .. tostring( GTowerServers:GetServerId() ) .. ".txt", authHex )
+
+    GTowerServers:SetState( 3 )
+    GTowerServers:UpdateDatabase()
+    timer.Simple( 45, function() gateKeep:ResetEmptyReadyServer() end )
+
+    if targetMap != "" and string.lower( game.GetMap() ) != string.lower( targetMap ) then
+        timer.Simple( 0.25, function()
+            hook.Call( "LastChanceMapChange", GAMEMODE, targetMap )
+            RunConsoleCommand( "gmt_forcelevel", targetMap )
+        end )
+    end
 end
 
 local function InitGateKeep()
@@ -128,6 +155,41 @@ function gateKeep:ResetEmptyReadyServer()
 
 end
 
+function gateKeep:PollGoMap( ServerID )
+    if gateKeep.GoMapQueryInFlight == true then
+        return
+    end
+
+    if not Database.IsConnected() then return end
+    if GTowerServers:GetState() != 1 then return end
+
+    gateKeep.GoMapQueryInFlight = true
+
+    Database.Query(
+        "SELECT `authplayers`, HEX(`gomap`) as `gomap` FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";",
+        function( res, status, err )
+            gateKeep.GoMapQueryInFlight = false
+
+            if status != QUERY_SUCCESS then
+                SQLLog( "error", "Gatekeeper gm_gomap lookup failed for server ", ServerID, ": ", tostring( err ) )
+                return
+            end
+
+            if type( res ) != "table" or table.Count( res ) == 0 then
+                return
+            end
+
+            local targetMap = string.lower( res[1].authplayers or "" )
+            local authHex = res[1].gomap or ""
+
+            SQLLog( "multiserver", "Gatekeeper consumed gm_gomap for server ", ServerID, " map ", targetMap, " authhex_len ", string.len( authHex or "" ) )
+
+            PromotePrivateServerFromGoMap( targetMap, authHex )
+            Database.Query( "DELETE FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";" )
+        end
+    )
+end
+
 // read text file generated to initialize list
 function gateKeep:GrabGoingToServer(ServerID)
 
@@ -181,11 +243,14 @@ function gateKeep:GrabGoList()
     elseif Gamemode.Private then
 
         gateKeep:GrabGoingToServer(ServerID)
+        gateKeep:PollGoMap(ServerID)
 
         if not timer.Exists("GTowerServersGoListPrivate") then
             timer.Create("GTowerServersGoListPrivate", 1, 0, function()
                 if not GTowerServers or not GTowerServers.GetServerId then return end
-                gateKeep:GrabGoingToServer(GTowerServers:GetServerId())
+                local serverId = GTowerServers:GetServerId()
+                gateKeep:GrabGoingToServer(serverId)
+                gateKeep:PollGoMap(serverId)
             end)
         end
 

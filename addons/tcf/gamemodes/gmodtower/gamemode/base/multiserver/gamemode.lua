@@ -1,6 +1,7 @@
 ---------------------------------
 local LastThink = 0
 local InQuery = false
+local InQuerySince = 0
 
 local function PromotePrivateServer(authHex)
     if not authHex or authHex == "" then return end
@@ -26,6 +27,7 @@ end
 
 local function GoMapResult(res, status, err)
     InQuery = false
+    InQuerySince = 0
 
     if status != QUERY_SUCCESS then
         SQLLog( "error", "gm_gomap lookup failed for server ", GTowerServers:GetServerId(), ": ", tostring( err ) )
@@ -68,6 +70,12 @@ local function PollBufferGoMap()
         return
     end
 
+    if InQuery == true and InQuerySince > 0 and ( CurTime() - InQuerySince ) > 10 then
+        InQuery = false
+        InQuerySince = 0
+        SQLLog( "error", "gm_gomap poll was stuck for server ", GTowerServers:GetServerId(), ", resetting query lock." )
+    end
+
     if GTowerServers:GetState() != 1 or InQuery == true then
         return
     end
@@ -78,6 +86,7 @@ local function PollBufferGoMap()
 
     LastThink = CurTime() + 0.5
     InQuery = true
+    InQuerySince = CurTime()
 
     Database.Query(
         "SELECT authplayers, HEX(`gomap`) as `gomap` FROM `gm_gomap` WHERE `serverid` = " .. GTowerServers:GetServerId() .. ";",
@@ -87,6 +96,8 @@ end
 
 local function StartBufferGoMapWatcher()
     RunConsoleCommand( "sv_hibernate_think", "1" )
+
+    MsgN( "[Multiserver] Starting gm_gomap watcher for server " .. tostring( GTowerServers:GetServerId() ) )
 
     if timer.Exists( "GTowerBufferGoMap" ) then
         return
