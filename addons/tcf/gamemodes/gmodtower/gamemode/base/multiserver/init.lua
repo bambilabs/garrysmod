@@ -213,6 +213,11 @@ hook.Add( "PlayerDisconnected", "GTowerServersDisConnect", UpdateMultiServer )
 timer.Create( "GTowerServersRepeat", GTowerServers.UpdateRate, 0, function()
 	GTowerServers:Trace( "timer", "GTowerServersRepeat tick" )
 	UpdateMultiServer()
+
+	if SERVER and gateKeep and gateKeep.GrabGoList then
+		GTowerServers:Trace( "timer", "GTowerServersRepeat forcing gateKeep:GrabGoList()" )
+		gateKeep:GrabGoList()
+	end
 end )
 
 timer.Simple(1, function()
