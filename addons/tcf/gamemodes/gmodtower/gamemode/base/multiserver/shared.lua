@@ -5,7 +5,7 @@ GTowerServers.UpdateRate = 5.0
 GTowerServers.UpdateTolerance = GTowerServers.UpdateRate * 8
 
 if SERVER then
-	CreateConVar( "gmt_multiserver_trace", "1", FCVAR_ARCHIVE )
+	CreateConVar( "gmt_multiserver_trace", "0", FCVAR_ARCHIVE )
 
 	function GTowerServers:Trace( tag, ... )
 		local cvar = GetConVar( "gmt_multiserver_trace" )

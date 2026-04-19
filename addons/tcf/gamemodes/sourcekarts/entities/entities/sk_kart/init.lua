@@ -47,6 +47,8 @@ function ENT:Initialize()
 		constraint.Weld( e, self, 0, 0, 0, true, false )
 	end
 
+	self:ClearBoostState()
+
 end
 
 function ENT:OnRemove()
@@ -142,6 +144,48 @@ kart.flashlight2:Input( "SpotlightTexture", NULL, NULL, "effects/flashlight001" 
 
 end
 
+function ENT:RefreshBoostState()
+	local now = CurTime()
+
+	if self._BoostEnd and self._BoostEnd <= now then
+		self._BoostEnd = nil
+	end
+
+	if self._BoostPadEnd and self._BoostPadEnd <= now then
+		self._BoostPadEnd = nil
+	end
+
+	local isBoosting = self._OnBoostPad == true
+		or self._BoostEnd != nil
+		or self._BoostPadEnd != nil
+
+	if self:GetIsBoosting() != isBoosting then
+		self:SetIsBoosting( isBoosting )
+	end
+
+	return isBoosting
+end
+
+function ENT:ClearBoostState()
+	self._BoostEnd = nil
+	self._BoostPadEnd = nil
+	self._OnBoostPad = false
+	self:SetIsBoosting( false )
+end
+
+function ENT:SetBoostPadActive( active, linger )
+	self._OnBoostPad = active == true
+
+	if self._OnBoostPad then
+		self._BoostPadEnd = nil
+	else
+		linger = tonumber( linger ) or 0
+		self._BoostPadEnd = linger > 0 and ( CurTime() + linger ) or nil
+	end
+
+	self:RefreshBoostState()
+end
+
 function ENT:Think()
 
 	if game.GetMap() == "gmt_sk_island02" && GAMEMODE:GetState() == STATE_BATTLE then
@@ -179,10 +223,7 @@ function ENT:Think()
 		self:SetTurnAngleNet(0)
 	end
 
-	if ( self._BoostEnd and self._BoostEnd < CurTime() ) then
-		self._BoostEnd = nil
-		self:SetIsBoosting( false )
-	end
+	self:RefreshBoostState()
 
 end
 
@@ -196,13 +237,9 @@ function ENT:OnMaterialChange( mat )
 	if RaveMode then delay = 1 end
 
 	if mat == "boost" then
-		self:SetIsBoosting( true )
+		self:SetBoostPadActive( true )
 	elseif mat != "boost" && self.PrevMat == "boost" then
-		timer.Simple(delay,function()
-			if IsValid(self) then
-				self:SetIsBoosting( false )
-			end
-		end)
+		self:SetBoostPadActive( false, delay )
 	end
 
 	if mat == "lava" then
@@ -251,11 +288,7 @@ function ENT:OnMaterialChange( mat )
 				end
 				if DriftLevel != 0 then
 
-					self:SetIsBoosting( true )
-
-					timer.Simple( DriftTimes[ DriftLevel ], function()
-						self:SetIsBoosting( false )
-					end)
+					self:Boost( 2, DriftTimes[ DriftLevel ] )
 				end
 		end
 	end
@@ -358,12 +391,13 @@ function ENT:Spin( ply, hitSelf )
 end
 
 function ENT:Boost( power, time )
-
-	self:SetIsBoosting( true )
-
-	if ( time ) then
-		self._BoostEnd = CurTime() + time
+	time = tonumber( time ) or 0.5
+	if time <= 0 then
+		time = 0.5
 	end
+
+	self._BoostEnd = math.max( self._BoostEnd or 0, CurTime() + time )
+	self:RefreshBoostState()
 
 end
 
@@ -472,11 +506,7 @@ function ENT:EndDrift()
 
 		if DriftLevel == 0 then return end
 
-		self:SetIsBoosting( true )
-
-		timer.Simple( DriftTimes[ DriftLevel ], function()
-			self:SetIsBoosting( false )
-		end)
+		self:Boost( 2, DriftTimes[ DriftLevel ] )
 
 	--self:GetOwner():ChatPrint( tostring( "FIRE: " .. time .. " DRIFT LEVEL: " .. DriftLevel .. " DRIFT TIME: "..DriftTimes[ DriftLevel ] ) )
 

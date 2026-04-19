@@ -270,13 +270,10 @@ function GM:Think()
 
           if RevDelay < 2 then
             --v:ChatPrint(tostring( "Boosting!..." ))
-            v:GetKart():SetIsBoosting( true )
+            if IsValid( v:GetKart() ) then
+              v:GetKart():Boost( 2, 2 )
+            end
 			v:AddAchievement(ACHIEVEMENTS.SKROLLING, 1)
-            timer.Simple(2,function()
-			if IsValid(v) && IsValid(v:GetKart()) then
-              v:GetKart():SetIsBoosting( false )
-			end
-            end)
           else
             --v:ChatPrint(tostring( "Spinning..." ))
             v:GetKart():Spin()
