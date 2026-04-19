@@ -45,7 +45,6 @@ hook.Add("GTowerMsg", "GamemodeMessage", function()
 end )
 
 local PlyJoined = false
-local ReadyToPlayingTimer = "SourceKartsReadyToPlaying"
 local PrivateQueueStartTimer = "SourceKartsPrivateQueueStart"
 
 local function IsPrivateQueueServer()
@@ -59,7 +58,8 @@ end
 
 function GM:StartReadyPhase()
 	timer.Remove( PrivateQueueStartTimer )
-	timer.Remove( ReadyToPlayingTimer )
+	self.PrivateQueueStartQueuedAt = nil
+	self.PlayingPhaseStarted = false
 
 	self:CleanUpMap()
 
@@ -77,20 +77,15 @@ function GM:StartReadyPhase()
 end
 
 function GM:StartPlayingPhase()
-	timer.Remove( ReadyToPlayingTimer )
-
-	if self:GetState() != STATE_READY then return end
+	if self:GetState() != STATE_READY || self.PlayingPhaseStarted then return end
+	self.PlayingPhaseStarted = true
 
 	for _, v in pairs( ents.FindByClass( "sk_kart" ) ) do
 		v:SetIsEngineOn( true )
 	end
 
 	self:SetTime( self.RaceTime )
-
-	timer.Create( ReadyToPlayingTimer, 2, 1, function()
-		if not GAMEMODE or GAMEMODE:GetState() != STATE_READY then return end
-		GAMEMODE:SetState( STATE_PLAYING )
-	end )
+	self:SetState( STATE_PLAYING )
 
 	local TrackName = {}
 	TrackName[1] = MUSIC_RACE1
@@ -121,12 +116,68 @@ function GM:StartPlayingPhase()
 	end
 end
 
+function GM:ReleaseKartSpawnClaims( ply )
+	local track = tostring( self:GetTrack() )
+
+	for _, v in pairs( ents.FindByClass( "info_kart_spawn" ) ) do
+		if tostring( v.Track ) != track then continue end
+
+		local owner = v.Player
+		if owner == ply || !IsValid( owner ) || !IsValid( owner:GetKart() ) then
+			v.Player = nil
+		end
+	end
+end
+
+function GM:GetPrivateQueuedPlayerTarget()
+	if !IsPrivateQueueServer() || !GetAuthorizedPlayers then
+		return 0
+	end
+
+	local expected = table.Count( GetAuthorizedPlayers() or {} )
+	if expected <= 0 then
+		expected = math.max( player.GetCount(), 1 )
+	end
+
+	return expected
+end
+
+function GM:GetPrivateClientReadyCount()
+	local count = 0
+
+	for _, ply in pairs( player.GetAll() ) do
+		if ply:IsBot() then continue end
+		if ply._SKClientReady || ply._ClientCreated then
+			count = count + 1
+		end
+	end
+
+	return count
+end
+
 function GM:QueuePrivateStart()
+	if self:GetState() != STATE_WAITING then return end
+
+	self.PrivateQueueStartQueuedAt = self.PrivateQueueStartQueuedAt or CurTime()
+
 	if timer.Exists( PrivateQueueStartTimer ) then return end
 
-	timer.Create( PrivateQueueStartTimer, 1.5, 1, function()
-		if not GAMEMODE or GAMEMODE:GetState() != STATE_WAITING or not PlyJoined then return end
-		GAMEMODE:StartReadyPhase()
+	timer.Create( PrivateQueueStartTimer, 0.5, 0, function()
+		if not GAMEMODE or GAMEMODE:GetState() != STATE_WAITING or not PlyJoined then
+			timer.Remove( PrivateQueueStartTimer )
+			return
+		end
+
+		local readyCount = GAMEMODE:GetPrivateClientReadyCount()
+		local expectedCount = GAMEMODE:GetPrivateQueuedPlayerTarget()
+		local age = CurTime() - ( GAMEMODE.PrivateQueueStartQueuedAt or CurTime() )
+
+		if readyCount <= 0 then return end
+
+		if readyCount >= expectedCount || age >= 12 then
+			timer.Remove( PrivateQueueStartTimer )
+			GAMEMODE:StartReadyPhase()
+		end
 	end )
 end
 
@@ -236,7 +287,55 @@ end
 
 function GM:PlayerDisconnected( ply )
 	 if IsValid( ply:GetKart() ) then ply:GetKart():Remove() end
+	 self:ReleaseKartSpawnClaims( ply )
 end
+
+hook.Add( "PlayerSpawnClient", "SourceKartsRoundSync", function( ply )
+	if !IsValid( ply ) || ply:IsBot() then return end
+
+	ply._SKClientReady = true
+
+	if !GAMEMODE then return end
+
+	if GAMEMODE:GetState() == STATE_WAITING && PlyJoined && IsPrivateQueueServer() then
+		GAMEMODE:QueuePrivateStart()
+		return
+	end
+
+	if GAMEMODE:GetState() == STATE_READY then
+		ply:SetTeam( TEAM_PLAYING )
+		GAMEMODE:SpawnPlayerKart( ply, false )
+		ply:SetCamera( "Playing", 0 )
+		return
+	end
+
+	if GAMEMODE:GetState() == STATE_PLAYING then
+		ply:SetTeam( TEAM_PLAYING )
+		GAMEMODE:SpawnPlayerKart( ply, true )
+
+		if ply:GetLap() < 1 then
+			ply:SetLap( 1 )
+		end
+
+		if ply:GetLapTime() <= 0 then
+			ply:SetLapTime( CurTime() )
+		end
+
+		if ply:GetBestLapTime() < 0 then
+			ply:SetBestLapTime( 0 )
+		end
+
+		if ply:GetTotalTime() <= 0 then
+			ply:SetTotalTime( CurTime() )
+		end
+
+		if ply:GetNWFloat( "StartedTime" ) <= 0 then
+			ply:SetNWFloat( "StartedTime", CurTime() )
+		end
+
+		ply:SetCamera( "Playing", 0 )
+	end
+end )
 
 function GM:Complete( ply )
 
@@ -295,13 +394,26 @@ function GM:SpawnPlayerKart( ply, engineon )
 
   ply:SetNet("BAL",0)
   ply:UnDrunk()
+  self:ReleaseKartSpawnClaims( ply )
+
+  local fallbackSpawn = nil
   for k,v in pairs(ents.FindByClass("info_kart_spawn")) do
-    if ( !v.Player && tostring(v.Track) == tostring(self:GetTrack()) ) then
+    if tostring(v.Track) != tostring(self:GetTrack()) then continue end
+
+    fallbackSpawn = fallbackSpawn or v
+
+    if ( !v.Player ) then
       if IsValid( ply:GetKart() ) then ply:GetKart():Remove() end
       v.Player = ply
       ply:SpawnKart( v:GetPos(), v:GetAngles(), engineon )
       return
     end
+  end
+
+  if fallbackSpawn then
+    if IsValid( ply:GetKart() ) then ply:GetKart():Remove() end
+    fallbackSpawn.Player = ply
+    ply:SpawnKart( fallbackSpawn:GetPos(), fallbackSpawn:GetAngles(), engineon )
   end
 
 end
@@ -321,7 +433,7 @@ function GM:Think()
     end
   elseif self:GetState() == STATE_READY then
     local time = math.ceil( self:GetTimeLeft() )
-    if time == 1 && !timer.Exists( ReadyToPlayingTimer ) then
+    if time <= 1 && !self.PlayingPhaseStarted then
       self:StartPlayingPhase()
     end
   elseif self:GetState() == STATE_PLAYING then
