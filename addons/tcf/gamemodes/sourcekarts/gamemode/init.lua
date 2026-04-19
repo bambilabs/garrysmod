@@ -45,6 +45,90 @@ hook.Add("GTowerMsg", "GamemodeMessage", function()
 end )
 
 local PlyJoined = false
+local ReadyToPlayingTimer = "SourceKartsReadyToPlaying"
+local PrivateQueueStartTimer = "SourceKartsPrivateQueueStart"
+
+local function IsPrivateQueueServer()
+	if not GTowerServers or not GTowerServers.GetState or not GTowerServers.Self then
+		return false
+	end
+
+	local serverMeta = GTowerServers:Self()
+	return serverMeta and serverMeta.Private == true and GTowerServers:GetState() == 3
+end
+
+function GM:StartReadyPhase()
+	timer.Remove( PrivateQueueStartTimer )
+	timer.Remove( ReadyToPlayingTimer )
+
+	self:CleanUpMap()
+
+	for _, v in pairs( player.GetAll() ) do
+		v:SetTeam( TEAM_PLAYING )
+		v:SetLap( 1 )
+		v.PassedPoints = {}
+		v:ClearItems()
+		self:SpawnPlayerKart( v, false )
+	end
+
+	self:SetTime( self.CameraTime * self.Cameras + 6 )
+	self:SetState( STATE_READY )
+	self:DoIntroCamera( self:GetTrack() )
+end
+
+function GM:StartPlayingPhase()
+	timer.Remove( ReadyToPlayingTimer )
+
+	if self:GetState() != STATE_READY then return end
+
+	for _, v in pairs( ents.FindByClass( "sk_kart" ) ) do
+		v:SetIsEngineOn( true )
+	end
+
+	self:SetTime( self.RaceTime )
+
+	timer.Create( ReadyToPlayingTimer, 2, 1, function()
+		if not GAMEMODE or GAMEMODE:GetState() != STATE_READY then return end
+		GAMEMODE:SetState( STATE_PLAYING )
+	end )
+
+	local TrackName = {}
+	TrackName[1] = MUSIC_RACE1
+	TrackName[2] = MUSIC_RACE2
+	TrackName[3] = MUSIC_RACE3
+
+	music.Play( 1, TrackName[ self:GetTrack() ] )
+
+	for _, v in pairs( player.GetAll() ) do
+		v:SetLapTime( CurTime() )
+		v:SetNWFloat( "StartedTime", CurTime() )
+		v:SetBestLapTime( 0 )
+		v:SetTotalTime( CurTime() )
+
+		// Ready set go boost
+		if v.RevTime && v.RevTime != 0 && v:KeyDown( IN_FORWARD ) then
+			local RevDelay = CurTime() - v.RevTime
+
+			if RevDelay < 2 then
+				if IsValid( v:GetKart() ) then
+					v:GetKart():Boost( 2, 2 )
+				end
+				v:AddAchievement( ACHIEVEMENTS.SKROLLING, 1 )
+			else
+				v:GetKart():Spin()
+			end
+		end
+	end
+end
+
+function GM:QueuePrivateStart()
+	if timer.Exists( PrivateQueueStartTimer ) then return end
+
+	timer.Create( PrivateQueueStartTimer, 1.5, 1, function()
+		if not GAMEMODE or GAMEMODE:GetState() != STATE_WAITING or not PlyJoined then return end
+		GAMEMODE:StartReadyPhase()
+	end )
+end
 
 // OVERRIDES ///////////////////////////////////////////
 
@@ -108,6 +192,11 @@ function GM:PlayerSpawn( ply )
 
     --self:SpawnPlayerKart( ply, false )
 
+  elseif self:GetState() == STATE_READY then
+    ply:SetTeam( TEAM_PLAYING )
+    self:SpawnPlayerKart( ply, false )
+    music.Play( 1, MUSIC_CAMERA, ply )
+
   elseif self:GetState() == STATE_BATTLE then
     ply:SetTeam( TEAM_PLAYING )
 
@@ -134,9 +223,14 @@ function GM:PlayerSpawn( ply )
 
   if ( PlyJoined or ply:IsBot() ) then return end
 
-  GAMEMODE:SetTime( GAMEMODE.WaitingTime )
-
   PlyJoined = true
+
+  if IsPrivateQueueServer() then
+    self:QueuePrivateStart()
+    return
+  end
+
+  GAMEMODE:SetTime( GAMEMODE.WaitingTime )
 
 end
 
@@ -223,66 +317,12 @@ function GM:Think()
     for k,v in pairs(player.GetAll()) do v:SetCamera("Waiting",0) end
 
     if (self:NoTimeLeft() && PlyJoined) then
-      self:CleanUpMap()
-
-      for k,v in pairs(player.GetAll()) do self:SpawnPlayerKart( v, false ) v:SetTeam( TEAM_PLAYING ) end
-
-      self:SetTime( self.CameraTime * self.Cameras + 6 )
-
-      self:SetState( STATE_READY )
-
-      self:DoIntroCamera( self:GetTrack() )
-
+      self:StartReadyPhase()
     end
   elseif self:GetState() == STATE_READY then
     local time = math.ceil( self:GetTimeLeft() )
-    if time == 1 then
-
-      for k,v in pairs( ents.FindByClass( "sk_kart" ) ) do v:SetIsEngineOn( true ) end
-
-      self:SetTime( self.RaceTime )
-      local cooldownHUD = CurTime() + 2
-      hook.Add( "Think", "HUDCooldown", function()
-        if CurTime() < cooldownHUD then return end
-        self:SetState( STATE_PLAYING )
-        hook.Remove( "Think", "HUDCooldown" )
-      end )
-
-      local TrackName = {}
-      TrackName[1] = MUSIC_RACE1
-      TrackName[2] = MUSIC_RACE2
-      TrackName[3] = MUSIC_RACE3
-
-	music.Play( 1, TrackName[ self:GetTrack() ] )
-
-      for k,v in pairs(player.GetAll()) do
-
-        v:SetLapTime(CurTime())
-	v:SetNWFloat("StartedTime", CurTime())
-        v:SetBestLapTime(0)
-        v:SetTotalTime(CurTime())
-
-        // Ready set go boost
-        if v.RevTime && v.RevTime != 0 && v:KeyDown(IN_FORWARD) then
-          local RevDelay = CurTime() - v.RevTime
-
-          --v:ChatPrint(tostring( "Rev time was: "..RevDelay.." seconds..." ))
-
-          if RevDelay < 2 then
-            --v:ChatPrint(tostring( "Boosting!..." ))
-            if IsValid( v:GetKart() ) then
-              v:GetKart():Boost( 2, 2 )
-            end
-			v:AddAchievement(ACHIEVEMENTS.SKROLLING, 1)
-          else
-            --v:ChatPrint(tostring( "Spinning..." ))
-            v:GetKart():Spin()
-          end
-
-        end
-
-      end
-
+    if time == 1 && !timer.Exists( ReadyToPlayingTimer ) then
+      self:StartPlayingPhase()
     end
   elseif self:GetState() == STATE_PLAYING then
 
@@ -333,21 +373,8 @@ function GM:Think()
   elseif self:GetState() == STATE_NEXTTRACK then
 
     if self:NoTimeLeft() then
-      self:CleanUpMap()
       self:IncreaseTrack()
-      for k,v in pairs(player.GetAll()) do
-        v:SetTeam( TEAM_PLAYING )
-        v:SetLap( 1 )
-      	v.PassedPoints = {}
-        self:SpawnPlayerKart( v, false )
-        v:ClearItems()
-      end
-
-      self:SetTime( self.CameraTime * self.Cameras + 6 )
-
-      self:SetState( STATE_READY )
-
-      self:DoIntroCamera( self:GetTrack() )
+      self:StartReadyPhase()
     end
   elseif self:GetState() == STATE_NEXTBATTLE then
 

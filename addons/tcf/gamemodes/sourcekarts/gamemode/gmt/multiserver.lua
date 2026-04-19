@@ -7,9 +7,10 @@ function GAMEMODE:EndServer()
 end
 
 function GAMEMODE:EnterPlayingState()
-	if self.CurrentLevel == 0 then
-		self:AdvanceLevelStatus()
+	if self.StartReadyPhase then
+		self:StartReadyPhase()
+		return
 	end
 
-	self:SetState( 2 )
+	self:SetState( STATE_READY )
 end
