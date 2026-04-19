@@ -66,7 +66,10 @@ function ServerMeta:SetMap( map, playershex )
 
 	local query = "REPLACE INTO `gm_gomap` (`serverid`, `authplayers`, `gomap`) VALUES (" .. self.Id .. ", " .. Database.Escape( map, true ) .. ", " .. playershex .. ");"
 
+	GTowerServers:Trace( "lobby-setmap", "ServerMeta:SetMap server=", tostring( self.Id ), " map=", tostring( map ), " playershex=", tostring( playershex ) )
+
 	Database.Query( query, function( res, status, err )
+		GTowerServers:Trace( "lobby-setmap", "ServerMeta:SetMap result status=", tostring( status ), " err=", tostring( err ) )
 		if status != QUERY_SUCCESS then
 			SQLLog( "error", "Failed to queue gm_gomap for server ", self.Id, " map ", tostring( map ), ": ", tostring( err ) )
 			return

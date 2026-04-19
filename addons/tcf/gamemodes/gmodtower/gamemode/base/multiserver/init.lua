@@ -27,6 +27,7 @@ function GTowerServers:SetState( state )
 	GTowerServers.CurState = state
 
 	SQLLog( "multiserver", "State changed to: " .. tostring( state ) )
+	GTowerServers:Trace( "state", "SetState(", tostring( state ), ")" )
 end
 
 function GM:SetStatus( state )
@@ -90,6 +91,7 @@ end
 function GTowerServers:UpdateDatabase( playerstack )
 
 	if not Database.IsConnected() then
+		self:Trace( "update", "Skipped UpdateDatabase because DB is disconnected" )
 		return
 	end
 
@@ -120,6 +122,15 @@ function GTowerServers:UpdateDatabase( playerstack )
 	}
 
 	local query = "UPDATE `gm_servers` SET " .. Database.CreateUpdateQuery( data ) .. " WHERE `id` = " .. ServerID .. ";"
+
+	self:Trace(
+		"update",
+		"UpdateDatabase state=", tostring( self:GetState() ),
+		" map=", tostring( game.GetMap() ),
+		" players=", tostring( PlayerCount ),
+		" msg=", tostring( gamemsg ),
+		" playerstack=", tostring( playerstack or "nil" )
+	)
 	
 	UpdateInProgress = true
 
@@ -138,6 +149,7 @@ local function BootMultiServerSync(attempt)
 	attempt = attempt or 0
 
 	if not Database or not Database.IsConnected or not Database.IsConnected() then
+		GTowerServers:Trace( "boot", "BootMultiServerSync waiting for DB; attempt=", tostring( attempt ) )
 		if attempt < 30 then
 			timer.Simple(1, function()
 				BootMultiServerSync(attempt + 1)
@@ -150,16 +162,20 @@ local function BootMultiServerSync(attempt)
 		GTowerServers:SetState(1)
 	end
 
+	GTowerServers:Trace( "boot", "BootMultiServerSync continuing; state=", tostring( GTowerServers:GetState() ) )
+
 	UpdateMultiServer()
 end
 
 hook.Add("MapChange", "GTowerMultiServersMap", function()
+	GTowerServers:Trace( "hook", "MapChange -> UpdateMultiServer" )
 	UpdateMultiServer()
 end )
 hook.Add("InitPostEntity", "GTowerMultiServerInit", function()
 	if GTowerServers:GetState() <= 1 then
 		GTowerServers:SetState( 1 )
 	end
+	GTowerServers:Trace( "hook", "InitPostEntity -> UpdateDatabase; state=", tostring( GTowerServers:GetState() ) )
 	GTowerServers:UpdateDatabase()
 end )
 hook.Add("CanChangeLevel", "UpdatingMultiServer", function()
@@ -171,6 +187,7 @@ end )
 hook.Add( "DatabaseConnected", "GTowerServersConnect", UpdateMultiServer )
 hook.Add( "PlayerDisconnected", "GTowerServersDisConnect", UpdateMultiServer )
 timer.Create( "GTowerServersRepeat", GTowerServers.UpdateRate, 0, function()
+	GTowerServers:Trace( "timer", "GTowerServersRepeat tick" )
 	UpdateMultiServer()
 end )
 

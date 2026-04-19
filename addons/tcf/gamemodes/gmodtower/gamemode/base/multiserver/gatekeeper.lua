@@ -16,6 +16,8 @@ local function PromotePrivateServerFromGoMap( targetMap, authHex )
 
     local ips = GTowerServers:PlayerListToIDs( authHex )
 
+    GTowerServers:Trace( "gate", "PromotePrivateServerFromGoMap targetMap=", tostring( targetMap ), " authHex=", tostring( authHex ), " ips=", tostring( table.concat( ips, "," ) ) )
+
     gateKeep.AuthorizedPlayers = {}
 
     SQLLog( "multiserver", "Authorized ips " .. table.concat( ips, ", " ) )
@@ -38,6 +40,7 @@ local function PromotePrivateServerFromGoMap( targetMap, authHex )
 end
 
 local function InitGateKeep()
+    GTowerServers:Trace( "gate", "InitGateKeep" )
     gateKeep:GrabGoList()
 end
 
@@ -101,6 +104,7 @@ end)
 * Obtains the list of players currently on the server
 */
 function gateKeep:GrabStackList(ServerID)
+    GTowerServers:Trace( "gate", "GrabStackList server=", tostring( ServerID ) )
 
     local Query = "SELECT `id`,HEX(`lastplayers`) FROM `gm_servers` WHERE `id` != " .. ServerID .. " AND `lastupdate` > " .. (os.time() - GTowerServers.UpdateTolerance)
 
@@ -156,19 +160,29 @@ function gateKeep:ResetEmptyReadyServer()
 end
 
 function gateKeep:PollGoMap( ServerID )
+    GTowerServers:Trace( "gate", "PollGoMap tick server=", tostring( ServerID ), " state=", tostring( GTowerServers:GetState() ), " inFlight=", tostring( gateKeep.GoMapQueryInFlight ) )
+
     if gateKeep.GoMapQueryInFlight == true then
         return
     end
 
-    if not Database.IsConnected() then return end
-    if GTowerServers:GetState() != 1 then return end
+    if not Database.IsConnected() then
+        GTowerServers:Trace( "gate", "PollGoMap skipped; DB disconnected" )
+        return
+    end
+    if GTowerServers:GetState() != 1 then
+        GTowerServers:Trace( "gate", "PollGoMap skipped; state=", tostring( GTowerServers:GetState() ) )
+        return
+    end
 
     gateKeep.GoMapQueryInFlight = true
+    GTowerServers:Trace( "gate", "PollGoMap querying gm_gomap for server=", tostring( ServerID ) )
 
     Database.Query(
         "SELECT `authplayers`, HEX(`gomap`) as `gomap` FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";",
         function( res, status, err )
             gateKeep.GoMapQueryInFlight = false
+            GTowerServers:Trace( "gate", "PollGoMap result status=", tostring( status ), " rows=", tostring( istable( res ) and table.Count( res ) or "nil" ), " err=", tostring( err ) )
 
             if status != QUERY_SUCCESS then
                 SQLLog( "error", "Gatekeeper gm_gomap lookup failed for server ", ServerID, ": ", tostring( err ) )
@@ -194,9 +208,11 @@ end
 function gateKeep:GrabGoingToServer(ServerID)
 
     local txt = "authedusers" .. tostring(GTowerServers:GetServerId()) .. ".txt"
+    GTowerServers:Trace( "gate", "GrabGoingToServer file=", txt, " exists=", tostring( file.Exists( txt, "DATA" ) ) )
 
     if file.Exists(txt, "DATA") then
         local contents = file.Read(txt, "DATA") or ""
+        GTowerServers:Trace( "gate", "GrabGoingToServer contentsLen=", tostring( string.len( contents ) ) )
 
         if contents == "" then
             file.Delete(txt)
@@ -225,10 +241,17 @@ function gateKeep:GrabGoList()
 
     gateKeep.MaxSlots = GetMaxSlots()
 
-    if not Database.IsConnected() then return end
+    GTowerServers:Trace( "gate", "GrabGoList maxSlots=", tostring( gateKeep.MaxSlots ) )
+
+    if not Database.IsConnected() then
+        GTowerServers:Trace( "gate", "GrabGoList skipped; DB disconnected" )
+        return
+    end
 
     local ServerID = GTowerServers:GetServerId()
     local Gamemode = GTowerServers:Self()
+
+    GTowerServers:Trace( "gate", "GrabGoList server=", tostring( ServerID ), " gamemode=", tostring( Gamemode and Gamemode.Gamemode or "nil" ), " private=", tostring( Gamemode and Gamemode.Private ) )
 
     if !Gamemode then return end
 

@@ -86,6 +86,8 @@ function ServerMeta:Think()
 	local IsReady = self:IsReady()
 	local Gamemode = self:GetGamemode()
 
+	GTowerServers:Trace( "lobby-think", "ServerMeta:Think server=", tostring( self.Id ), " ready=", tostring( IsReady ), " status=", tostring( self.Status ), " goJoinTime=", tostring( self.GoJoinTime ), " mapChangeSent=", tostring( self.MapChangeSent ) )
+
 	if IsReady == true then
 
 		//print(self.GoJoinTime, #self:GetMovingPlayers())
@@ -110,8 +112,11 @@ function ServerMeta:Think()
 		elseif CurTime() > self.GoJoinTime && self.SendPlayersFinal then
 
 			if self.Status == 3 then
+				GTowerServers:Trace( "lobby-think", "Server ready to redirect server=", tostring( self.Id ), " players=", tostring( #self.SendPlayersFinal ) )
 				//print(self.Id, "move it!")
 				self:PlayersToServer(self.SendPlayersFinal)
+			else
+				GTowerServers:Trace( "lobby-think", "Waiting for target server to become state 3; server=", tostring( self.Id ), " currentStatus=", tostring( self.Status ) )
 			end
 
 		else

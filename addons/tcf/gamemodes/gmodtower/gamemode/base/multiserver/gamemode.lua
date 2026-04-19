@@ -8,6 +8,8 @@ local function PromotePrivateServer(authHex)
 
     local ips = GTowerServers:PlayerListToIDs(authHex)
 
+    GTowerServers:Trace( "gomap", "PromotePrivateServer authHexLen=", tostring( string.len( authHex or "" ) ), " ips=", tostring( table.concat( ips, "," ) ) )
+
     if gateKeep and gateKeep.AuthorizedPlayers then
         gateKeep.AuthorizedPlayers = {}
         for _, ip in ipairs(ips) do
@@ -29,6 +31,8 @@ local function GoMapResult(res, status, err)
     InQuery = false
     InQuerySince = 0
 
+    GTowerServers:Trace( "gomap", "GoMapResult status=", tostring( status ), " rows=", tostring( istable( res ) and table.Count( res ) or "nil" ), " err=", tostring( err ) )
+
     if status != QUERY_SUCCESS then
         SQLLog( "error", "gm_gomap lookup failed for server ", GTowerServers:GetServerId(), ": ", tostring( err ) )
         return
@@ -42,6 +46,7 @@ local function GoMapResult(res, status, err)
     local authHex = res[1].gomap or ""
 
     SQLLog( "multiserver", "Consumed gm_gomap for server ", GTowerServers:GetServerId(), " map ", targetMap, " authhex_len ", string.len( authHex or "" ) )
+    GTowerServers:Trace( "gomap", "Consumed row targetMap=", targetMap, " authHex=", tostring( authHex ) )
 
     file.Write("authedusers" .. tostring(GTowerServers:GetServerId()) .. ".txt", authHex)
     PromotePrivateServer(authHex)
@@ -61,12 +66,14 @@ local function PollBufferGoMap()
 
     if not Gamemode or Gamemode.Private != true then
         if timer.Exists( "GTowerBufferGoMap" ) then
+            GTowerServers:Trace( "gomap", "PollBufferGoMap stopping timer because gamemode is not private" )
             timer.Remove( "GTowerBufferGoMap" )
         end
         return
     end
 
     if not Database or not Database.IsConnected or not Database.IsConnected() then
+        GTowerServers:Trace( "gomap", "PollBufferGoMap skipped; DB disconnected" )
         return
     end
 
@@ -77,6 +84,7 @@ local function PollBufferGoMap()
     end
 
     if GTowerServers:GetState() != 1 or InQuery == true then
+        GTowerServers:Trace( "gomap", "PollBufferGoMap skipped; state=", tostring( GTowerServers:GetState() ), " inQuery=", tostring( InQuery ) )
         return
     end
 
@@ -88,6 +96,8 @@ local function PollBufferGoMap()
     InQuery = true
     InQuerySince = CurTime()
 
+    GTowerServers:Trace( "gomap", "PollBufferGoMap querying gm_gomap for server ", tostring( GTowerServers:GetServerId() ) )
+
     Database.Query(
         "SELECT authplayers, HEX(`gomap`) as `gomap` FROM `gm_gomap` WHERE `serverid` = " .. GTowerServers:GetServerId() .. ";",
         GoMapResult
@@ -98,8 +108,10 @@ local function StartBufferGoMapWatcher()
     RunConsoleCommand( "sv_hibernate_think", "1" )
 
     MsgN( "[Multiserver] Starting gm_gomap watcher for server " .. tostring( GTowerServers:GetServerId() ) )
+    GTowerServers:Trace( "gomap", "StartBufferGoMapWatcher called" )
 
     if timer.Exists( "GTowerBufferGoMap" ) then
+        GTowerServers:Trace( "gomap", "StartBufferGoMapWatcher skipped; timer already exists" )
         return
     end
 

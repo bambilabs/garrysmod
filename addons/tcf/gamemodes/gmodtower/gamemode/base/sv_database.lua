@@ -11,6 +11,10 @@ end
 local function SetupDatabase()
     RunConsoleCommand( "sv_hibernate_think", "1" )
 
+    if GTowerServers and GTowerServers.Trace then
+        GTowerServers:Trace( "database", "SetupDatabase begin; hibernate_think forced on" )
+    end
+
     if LoadTCFEnv then
         LoadTCFEnv()
     end
@@ -51,6 +55,10 @@ local function SetupDatabase()
         nil,
         "Database"
     )
+
+    if GTowerServers and GTowerServers.Trace then
+        GTowerServers:Trace( "database", "Driver=", tostring( driver ), " host=", tostring( config.host ), " port=", tostring( config.port ), " db=", tostring( config.db ) )
+    end
     
     Database.SetDriver( driver )
     Database.SetConfig( config )
@@ -63,6 +71,10 @@ hook.Add( "DatabaseModuleInitialized", "SetupDatabase", SetupDatabase )
 hook.Add( "DatabaseConnected", "SetupDatabase", function()
 
     LogPrint( "Successfully connected to database.", nil, "Database" )
+
+    if GTowerServers and GTowerServers.Trace then
+        GTowerServers:Trace( "database", "DatabaseConnected hook fired" )
+    end
 
     // Database.Migrate()
 
