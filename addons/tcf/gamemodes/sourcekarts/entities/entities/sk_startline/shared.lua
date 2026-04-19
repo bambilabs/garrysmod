@@ -27,9 +27,10 @@ function ENT:GatherAttachmentPos( tbl, name )
 		if type( att ) != "string" then continue end
 
 		local attach = self:LookupAttachment( att )
-		if attach < 0 then continue end
+		if !attach || attach <= 0 then continue end
 
-		attach = self:GetAttachment( attach )
+		attach = self:GetAttachment( attach )
+		if !attach then continue end
 		if !self.Att[name] then self.Att[name] = {} end
 
 		self.Att[name][id] = { pos = attach.Pos + ( attach.Ang:Forward() * 12.5 ), ang = attach.Ang }

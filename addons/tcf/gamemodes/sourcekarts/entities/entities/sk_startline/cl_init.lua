@@ -109,6 +109,7 @@ function ENT:Draw()
 
 	self:DrawModel()
 	self:UpdateAttachments()
+	if !self.Att.Lights || !self.Att.Lights[1] || !self.Att.Screens || !self.Att.Screens[1] then return end
 
 	local dist = LocalPlayer():GetPos():Distance( self:GetPos() )
 	if dist > 4096 then return end

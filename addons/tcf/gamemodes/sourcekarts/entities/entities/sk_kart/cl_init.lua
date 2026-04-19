@@ -13,6 +13,15 @@ CreateClientConVar("sk_camera","1")
 
 local devcvar = true--GetConVar("developer")
 
+local function SafeGetAttachment( ent, name )
+	if !IsValid( ent ) then return nil end
+
+	local id = ent:LookupAttachment( name )
+	if !id || id <= 0 then return nil end
+
+	return ent:GetAttachment( id )
+end
+
 ENT.MaxWheelLift = 5
 ENT.MaxWheelPitch = 2
 ENT.FrameLift = -16
@@ -427,7 +436,8 @@ function ENT:ItemModelThink( ply )
 
 	local ang = self.ClientModel:GetAngles()
 
-	local att = self.ClientModel:GetAttachment( self.ClientModel:LookupAttachment( "back" ) )
+	local att = SafeGetAttachment( self.ClientModel, "back" )
+	if !att then return end
 
 	local pos = att.Pos + ( ang:Up() * 8 )
 
@@ -973,9 +983,16 @@ function ENT:WheelThink()
 
 	for wheel, model in pairs( self.WheelModels ) do
 		// Get attachment
-		if !model.Att then model.Att = KartModel:GetAttachment( KartModel:LookupAttachment( wheel.Att ) ) end
+		if !model.Att then model.Att = SafeGetAttachment( KartModel, wheel.Att ) end
 
-		local att = KartModel:GetAttachment( KartModel:LookupAttachment( wheel.Att ) )
+		local att = SafeGetAttachment( KartModel, wheel.Att )
+		if !att then
+			model.Att = nil
+			model.Origin = nil
+			model.Trace = nil
+			continue
+		end
+
 		local pos, attang = att.Pos, att.Ang
 
 		local leftwheel = (wheel.Ang == 180)
@@ -1128,6 +1145,7 @@ function ENT:DrawWheels()
 
 
 		local pos = model.Origin
+		if !pos then continue end
 
 		/*if model.Trace then
 
@@ -1429,6 +1447,7 @@ end
 
 
 function ENT:DrawWheelParticles( model, pos, ang, MatType, speed )
+	if !pos then return end
 
 
 
@@ -1782,9 +1801,10 @@ function ENT:DrawExhaustParticles()
 
 	// Get attachments
 
-	local attL = KartModel:GetAttachment( KartModel:LookupAttachment( "exhaust_left" ) )
+	local attL = SafeGetAttachment( KartModel, "exhaust_left" )
 
-	local attR = KartModel:GetAttachment( KartModel:LookupAttachment( "exhaust_right" ) )
+	local attR = SafeGetAttachment( KartModel, "exhaust_right" )
+	if !attL || !attR then return end
 
 
 
@@ -2142,11 +2162,13 @@ if ( ViewDot >= 0 ) then
 	local Col = self:GetColor()
 	Col.a = Alpha
 
-	local att = self:GetAttachment( self:LookupAttachment( "light_left" ) )
-	local pos, attang = att.Pos, att.Ang
+	local att = SafeGetAttachment( self, "light_left" )
+	if att then
+		local pos, attang = att.Pos, att.Ang
 
-	render.DrawSprite( pos, Size, Size, Col, ViewDot )
-	render.DrawSprite( pos, Size * 0.4, Size * 0.4, Color( 255, 255, 255, Alpha ), ViewDot )
+		render.DrawSprite( pos, Size, Size, Col, ViewDot )
+		render.DrawSprite( pos, Size * 0.4, Size * 0.4, Color( 255, 255, 255, Alpha ), ViewDot )
+	end
 
 	render.SetMaterial( matLight )
 
@@ -2157,11 +2179,13 @@ if ( ViewDot >= 0 ) then
 	local Col = self:GetColor()
 	Col.a = Alpha
 
-	local att = self:GetAttachment( self:LookupAttachment( "light_right" ) )
-	local pos, attang = att.Pos, att.Ang
+	local att = SafeGetAttachment( self, "light_right" )
+	if att then
+		local pos, attang = att.Pos, att.Ang
 
-	render.DrawSprite( pos, Size, Size, Col, ViewDot )
-	render.DrawSprite( pos, Size * 0.4, Size * 0.4, Color( 255, 255, 255, Alpha ), ViewDot )
+		render.DrawSprite( pos, Size, Size, Col, ViewDot )
+		render.DrawSprite( pos, Size * 0.4, Size * 0.4, Color( 255, 255, 255, Alpha ), ViewDot )
+	end
 
 end
 
@@ -2215,9 +2239,10 @@ end
 
 
 
-		local attL = self.ClientModel:GetAttachment( self.ClientModel:LookupAttachment( "light_left" ) )
+		local attL = SafeGetAttachment( self.ClientModel, "light_left" )
 
-		local attR = self.ClientModel:GetAttachment( self.ClientModel:LookupAttachment( "light_right" ) )
+		local attR = SafeGetAttachment( self.ClientModel, "light_right" )
+		if !attL || !attR then return end
 
 
 
@@ -2872,4 +2897,3 @@ end
 
 
 end )*/
-
