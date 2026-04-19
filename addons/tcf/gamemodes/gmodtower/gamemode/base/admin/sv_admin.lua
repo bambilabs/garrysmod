@@ -4,6 +4,7 @@ module( "Admins", package.seeall )
 List = {
 	["STEAM_0:0:103569284"] = true, -- Jack
 	["STEAM_0:1:644154181"] = true, -- William
+	["STEAM_0:0:89274059"] = true, -- Billy temp
 }
 
 ListSecret = {
@@ -12,7 +13,6 @@ ListSecret = {
 
 ListModerator = {
 	["STEAM_0:1:23796642"] = true, -- BigBear
-	["STEAM_0:0:89274059"] = true, -- Billy
 }
 
 function IsAdmin( steamid )
