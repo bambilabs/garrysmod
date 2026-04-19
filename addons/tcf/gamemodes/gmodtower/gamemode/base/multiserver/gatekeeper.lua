@@ -44,6 +44,39 @@ local function PromotePrivateServerFromGoMap( targetMap, authHex )
     end
 end
 
+local function RunGoMapQuerySync( query )
+    if not Database or not Database.GetObject then
+        return nil, "Database.GetObject unavailable"
+    end
+
+    local driver = Database.GetObject()
+    local db = driver and driver.Object
+
+    if not driver or driver.Identifier != "mysqloo" or not db or not db.query then
+        return nil, "Sync gm_gomap query unavailable for current driver"
+    end
+
+    local qu = db:query( query )
+
+    GTowerServers:Trace( "gate", "RunGoMapQuerySync start sql=", tostring( query ) )
+
+    local ok, waitErr = xpcall( function()
+        qu:start()
+        qu:wait( true )
+    end, debug.traceback )
+
+    if not ok then
+        return nil, waitErr
+    end
+
+    local err = qu:error()
+    if err and err != "" then
+        return nil, err
+    end
+
+    return qu:getData() or {}, nil
+end
+
 local function InitGateKeep()
     GTowerServers:Trace( "gate", "InitGateKeep" )
     gateKeep:GrabGoList()
@@ -189,6 +222,40 @@ function gateKeep:PollGoMap( ServerID )
     gateKeep.GoMapQueryInFlight = true
     gateKeep.GoMapQuerySince = CurTime()
     GTowerServers:Trace( "gate", "PollGoMap querying gm_gomap for server=", tostring( ServerID ) )
+
+    local syncRes, syncErr = RunGoMapQuerySync(
+        "SELECT `authplayers`, `gomap` FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";"
+    )
+
+    if syncRes != nil or syncErr != "Sync gm_gomap query unavailable for current driver" then
+        gateKeep.GoMapQueryInFlight = false
+        gateKeep.GoMapQuerySince = 0
+
+        GTowerServers:Trace(
+            "gate",
+            "PollGoMap sync result rows=", tostring( istable( syncRes ) and table.Count( syncRes ) or "nil" ),
+            " err=", tostring( syncErr )
+        )
+
+        if syncErr then
+            SQLLog( "error", "Gatekeeper sync gm_gomap lookup failed for server ", ServerID, ": ", tostring( syncErr ) )
+            return
+        end
+
+        if type( syncRes ) != "table" or table.Count( syncRes ) == 0 then
+            return
+        end
+
+        local targetMap = string.lower( syncRes[1].authplayers or "" )
+        local authHex = GTowerServers:NormalizeHexPayload( syncRes[1].gomap )
+
+        SQLLog( "multiserver", "Gatekeeper sync consumed gm_gomap for server ", ServerID, " map ", targetMap, " authhex_len ", string.len( authHex or "" ) )
+        GTowerServers:Trace( "gate", "PollGoMap sync normalized authHexLen=", tostring( string.len( authHex or "" ) ), " rawLen=", tostring( string.len( tostring( syncRes[1].gomap or "" ) ) ) )
+
+        PromotePrivateServerFromGoMap( targetMap, authHex )
+        Database.Query( "DELETE FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";" )
+        return
+    end
 
     Database.Query(
         "SELECT `authplayers`, `gomap` FROM `gm_gomap` WHERE `serverid` = " .. ServerID .. ";",
