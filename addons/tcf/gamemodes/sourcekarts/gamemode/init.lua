@@ -56,6 +56,18 @@ local function IsPrivateQueueServer()
 	return serverMeta and serverMeta.Private == true and GTowerServers:GetState() == 3
 end
 
+local function GetBattleResetSpawn()
+	local spawns = {}
+
+	for _, v in pairs( ents.FindByClass( "info_kart_spawn" ) ) do
+		if tostring( v.Track ) == "4" then
+			table.insert( spawns, v )
+		end
+	end
+
+	return table.Random( spawns )
+end
+
 function GM:StartReadyPhase()
 	timer.Remove( PrivateQueueStartTimer )
 	self.PrivateQueueStartQueuedAt = nil
@@ -179,6 +191,131 @@ function GM:QueuePrivateStart()
 			GAMEMODE:StartReadyPhase()
 		end
 	end )
+end
+
+function GM:AdvancePostRaceState()
+	if IsPrivateQueueServer() then
+		self:SetTime( 10 )
+		self:SetState( STATE_ENDING )
+		music.Play( 1, MUSIC_WAITING )
+
+		for _, v in pairs( player.GetAll() ) do
+			v:ClearItems()
+			v:SetCamera( "Waiting", 0 )
+		end
+
+		return
+	end
+
+	self:SetTime( 10 )
+
+	if GAMEMODE:GetTrack() == 3 then
+		self:SetState( STATE_TOBATTLE )
+	elseif GAMEMODE:GetTrack() == 5 then
+		self:SetState( STATE_ENDING )
+	elseif GAMEMODE:GetTrack() == 4 then
+		self:SetState( STATE_NEXTBATTLE )
+	else
+		self:SetState( STATE_NEXTTRACK )
+	end
+end
+
+function GM:GetRaceResetPoint( ply )
+	local totalPoints = #checkpoints.Points
+	if totalPoints <= 0 then return nil end
+
+	local checkpoint = math.Clamp( ply:GetCheckpoint(), 1, totalPoints )
+	local point = checkpoints.Points[ checkpoint ]
+	if point then
+		return point
+	end
+
+	local kart = ply:GetKart()
+	if IsValid( kart ) then
+		local closest = checkpoints.ClosestPoint( kart:GetPos() )
+		if closest then
+			return checkpoints.Points[ math.Clamp( closest, 1, totalPoints ) ]
+		end
+	end
+
+	return checkpoints.Points[1]
+end
+
+function GM:RespawnPlayerAtRacePoint( ply, engineon )
+	if !IsValid( ply ) then return false end
+	if !ply.RespawnDelay then ply.RespawnDelay = 0 end
+	if CurTime() < ply.RespawnDelay then return false end
+
+	local point = self:GetRaceResetPoint( ply )
+	if !point then
+		self:SpawnPlayerKart( ply, engineon )
+		return true
+	end
+
+	ply.RespawnDelay = CurTime() + 5
+	ply.PassedPoints = ply.PassedPoints or {}
+
+	for i = point.id - 4, point.id do
+		if i > 0 then
+			ply.PassedPoints[i] = true
+		end
+	end
+
+	local ang = point.ang
+	local pos = point.pos + ( ang:Up() * -110 )
+
+	PostEvent( ply, "fadeon" )
+	ply:ClearItems()
+
+	timer.Simple( .85, function()
+		if !IsValid( ply ) then return end
+
+		ply:SpawnKart( pos, ang, engineon )
+		PostEvent( ply, "fadeoff" )
+	end )
+
+	timer.Simple( 1, function()
+		if !IsValid( ply ) then return end
+
+		local kart = ply:GetKart()
+		if IsValid( kart ) then
+			kart:Boost( 2, 0.5 )
+		end
+	end )
+
+	return true
+end
+
+function GM:RespawnPlayerAtBattleSpawn( ply )
+	if !IsValid( ply ) then return false end
+	if !ply.RespawnDelay then ply.RespawnDelay = 0 end
+	if CurTime() < ply.RespawnDelay then return false end
+
+	local resetSpawn = GetBattleResetSpawn()
+	if !IsValid( resetSpawn ) then return false end
+
+	ply.RespawnDelay = CurTime() + 5
+	PostEvent( ply, "fadeon" )
+
+	timer.Simple( .85, function()
+		if !IsValid( ply ) then return end
+
+		ply:SpawnKart( resetSpawn:GetPos() + Vector( 0, 0, 25 ), resetSpawn:GetAngles(), true )
+		PostEvent( ply, "fadeoff" )
+		ply:ClearItems()
+		ply:TakeBattleDamage()
+	end )
+
+	timer.Simple( 1, function()
+		if !IsValid( ply ) then return end
+
+		local kart = ply:GetKart()
+		if IsValid( kart ) then
+			kart:Boost( 2, 0.5 )
+		end
+	end )
+
+	return true
 end
 
 // OVERRIDES ///////////////////////////////////////////
@@ -338,10 +475,7 @@ hook.Add( "PlayerSpawnClient", "SourceKartsRoundSync", function( ply )
 end )
 
 function GM:Complete( ply )
-
-  if GAMEMODE:GetFinishedPlayers() == 0 then
-    self:SetTime( self.FirstCountdown )
-  end
+  local hadFinishers = GAMEMODE:GetFinishedPlayers() > 0
 
   ply:SetTeam( TEAM_FINISHED )
   ply:ClearItems()
@@ -361,6 +495,18 @@ function GM:Complete( ply )
   ply:GetKart():EmitSound( "gmodtower/misc/confetti.wav", 80, math.random(125,150) )
 
 	ply:SetNWFloat( "FinishedTime", CurTime() )
+
+  local totalPlayers = GAMEMODE:GetTotalPlayers()
+  local allFinished = totalPlayers > 0 && GAMEMODE:GetFinishedPlayers() >= totalPlayers
+
+  if !hadFinishers && !allFinished then
+    self:SetTime( self.FirstCountdown )
+  end
+
+  if self:GetState() == STATE_PLAYING && allFinished then
+    GAMEMODE:GiveMoney( true )
+    self:AdvancePostRaceState()
+  end
 
 end
 
@@ -440,45 +586,15 @@ function GM:Think()
 
     if ( self:GetFinishedPlayers() > 0 && self:NoTimeLeft() ) then
       GAMEMODE:GiveMoney( true )
-      self:SetTime( 10 )
-
-      if GAMEMODE:GetTrack() == 3 then
-        self:SetState( STATE_TOBATTLE )
-      elseif GAMEMODE:GetTrack() == 5 then
-        self:SetState( STATE_ENDING )
-      elseif GAMEMODE:GetTrack() == 4 then
-        self:SetState( STATE_NEXTBATTLE )
-      else
-        self:SetState( STATE_NEXTTRACK )
-      end
+      self:AdvancePostRaceState()
 
     elseif ( self:GetFinishedPlayers() == 0 && self:NoTimeLeft() ) then
       GAMEMODE:GiveMoney( true )
-      self:SetTime( 10 )
+      self:AdvancePostRaceState()
 
-      if GAMEMODE:GetTrack() == 3 then
-        self:SetState( STATE_TOBATTLE )
-      elseif GAMEMODE:GetTrack() == 5 then
-        self:SetState( STATE_ENDING )
-      elseif GAMEMODE:GetTrack() == 4 then
-        self:SetState( STATE_NEXTBATTLE )
-      else
-        self:SetState( STATE_NEXTTRACK )
-      end
-
-    elseif ( self:GetFinishedPlayers() == player.GetCount() ) then
+    elseif ( self:GetFinishedPlayers() >= self:GetTotalPlayers() && self:GetTotalPlayers() > 0 ) then
       GAMEMODE:GiveMoney( true )
-      self:SetTime( 10 )
-
-      if GAMEMODE:GetTrack() == 3 then
-        self:SetState( STATE_TOBATTLE )
-      elseif GAMEMODE:GetTrack() == 5 then
-        self:SetState( STATE_ENDING )
-      elseif GAMEMODE:GetTrack() == 4 then
-        self:SetState( STATE_NEXTBATTLE )
-      else
-        self:SetState( STATE_NEXTTRACK )
-      end
+      self:AdvancePostRaceState()
 
     end
 
@@ -531,9 +647,6 @@ function GM:Think()
       self:SetTime( 10 )
 
       self:SetState( STATE_ENDING )
-      timer.Simple(20, function()
-        self:EndServer()
-      end)
 
 	music.Play( 1, MUSIC_WAITING )
 
@@ -543,6 +656,11 @@ function GM:Think()
 		v:SetTeam( TEAM_PLAYING )
       end
 
+    end
+  elseif self:GetState() == STATE_ENDING then
+
+    if self:NoTimeLeft() then
+      self:EndServer()
     end
   elseif self:GetState() == STATE_BATTLE then
 
@@ -722,155 +840,15 @@ end)
 concommand.Add("sk_reset",function(ply)
 
   if GAMEMODE:GetState() == STATE_BATTLE then
-
-    local kart = ply:GetKart()
-
-    if !IsValid(kart) then return end
-
-    if !ply.RespawnDelay then ply.RespawnDelay = 0 end
-    if !IsValid(ply:GetKart()) or !IsValid(ply) or CurTime() < ply.RespawnDelay then return end
-
-    ply.RespawnDelay = CurTime() + 5
-
-    	// Fade out...
-
-	PostEvent( ply, "fadeon" )
-
-	local ForwardVel = 0 -- Used to save our velocity
-
-
-
-	timer.Simple( .85, function()
-
-		if IsValid( ply ) && IsValid( kart ) then
-
-			local KartPhys = kart:GetPhysicsObject()
-
-			ForwardVel = KartPhys:GetAngles():Forward():Dot( KartPhys:GetVelocity() ) -- Store our vel
-
-
-      local spawns = {}
-
-      for k,v in pairs( ents.FindByClass("info_kart_spawn") ) do
-        if v.Track == "4" then
-          table.insert( spawns, v )
-        end
-      end
-
-      local ResetSpawn = table.Random( spawns )
-
-			ply:SpawnKart( ResetSpawn:GetPos() + Vector(0,0,25), ResetSpawn:GetAngles(), true )
-
-			PostEvent( ply, "fadeoff" )
-
-      ply:ClearItems()
-
-	  ply:TakeBattleDamage()
-
-		end
-
-	end )
-
-
-
-	// Boost!!!
-
-	timer.Simple( 1, function()
-
-		if IsValid( ply ) then
-
-			local kart = ply:GetKart()
-
-			if IsValid( kart ) then
-
-			   kart:Boost(2,0.5)
-			end
-
-		end
-
-	end )
-
-
+    GAMEMODE:RespawnPlayerAtBattleSpawn( ply )
     return
   end
 
-  if GAMEMODE:GetState() != STATE_PLAYING || ply:Team() != TEAM_PLAYING then return end
+  local state = GAMEMODE:GetState()
+  local canResetRace = state == STATE_READY || state == STATE_PLAYING || state == STATE_NEXTTRACK || state == STATE_ENDING
+  if !canResetRace || ply:Team() != TEAM_PLAYING then return end
 
-  local kart = ply:GetKart()
-
-  if !IsValid(kart) then return end
-
-  if !ply.RespawnDelay then ply.RespawnDelay = 0 end
-  if !IsValid(ply:GetKart()) or !IsValid(ply) or CurTime() < ply.RespawnDelay then return end
-
-  ply.RespawnDelay = CurTime() + 5
-
-	local point = checkpoints.Points[ math.Clamp( ply:GetCheckpoint(), 1, #checkpoints.Points ) ]
-
-	if !point then return end
-
-
-
-	for i=point.id-4, point.id do
-
-		ply.PassedPoints[i] = true
-
-	end
-
-
-
-	local ang = point.ang
-
-	local pos = point.pos + ( ang:Up() * -110 )
-
-
-
-	// Fade out...
-
-	PostEvent( ply, "fadeon" )
-
-  ply:ClearItems()
-	local ForwardVel = 0 -- Used to save our velocity
-
-
-
-	timer.Simple( .85, function()
-
-		if IsValid( ply ) && IsValid( kart ) then
-
-			local KartPhys = kart:GetPhysicsObject()
-
-			ForwardVel = KartPhys:GetAngles():Forward():Dot( KartPhys:GetVelocity() ) -- Store our vel
-
-
-
-			ply:SpawnKart( pos, ang, true )
-
-			PostEvent( ply, "fadeoff" )
-
-
-		end
-
-	end )
-
-
-
-	// Boost!!!
-
-	timer.Simple( 1, function()
-
-		if IsValid( ply ) then
-
-			local kart = ply:GetKart()
-
-			if IsValid( kart ) then
-
-			   kart:Boost(2,0.5)
-			end
-
-		end
-
-	end )
+  GAMEMODE:RespawnPlayerAtRacePoint( ply, state != STATE_READY )
 
 
 end)
