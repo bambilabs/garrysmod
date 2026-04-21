@@ -45,7 +45,7 @@ function GM:PlayerBindPress( ply, bind, pressed )
 	end
 end
 
-//apparently changing the volume to 0 will restart the song, so it really doesn't matter
+--apparently changing the volume to 0 will restart the song, so it really doesn't matter
 net.Receive("ToggleMusic",function()
 
 	if !LocalPlayer().Music then return end
@@ -54,7 +54,7 @@ net.Receive("ToggleMusic",function()
 
 	if bool then
 
-		// woah woah, don't start the music when this is going
+		-- woah woah, don't start the music when this is going
 		local TimeLeft = GAMEMODE:GetTimeLeft()
 		if TimeLeft > 0 && TimeLeft <= 16 then return end
 
@@ -120,7 +120,7 @@ function GM:DrawHUDTimer()
 
 	local color = Color( 255, 255, 255, 255 )
 	if TimeLeft <= 16 then
-		//color = Color( 255, 180, 180, 255 )
+		--color = Color( 255, 180, 180, 255 )
 	end
 
 	draw.SimpleText( ElapsedTime, "PVPTime", ( ScrW() / 2 ) - 40, 35, color, 1, 1 )
@@ -267,8 +267,8 @@ function GM:DamageNotes()
 		local y = scrpos.y + 40 * timer
 		local c = Color( 250, 50, 50, 255 * timer )
 
-		//surface.SetTexture( surface.GetTextureID( "sprites/sent_ball" ) )
-		//surface.DrawTexturedRect( scrpos.x, y, 15, 15 )
+		--surface.SetTexture( surface.GetTextureID( "sprites/sent_ball" ) )
+		--surface.DrawTexturedRect( scrpos.x, y, 15, 15 )
 
 		draw.SimpleTextOutlined( note.Message, note.Font, scrpos.x, y, c, 1, 1, 1, Color( 0, 0, 0, c.a ) )
 

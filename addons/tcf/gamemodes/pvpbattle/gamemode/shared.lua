@@ -1,15 +1,15 @@
 GM.Name     = "GMod Tower: PVP Battle"
 GM.Author   = "GMod Tower Team"
-GM.Website  = "http://www.gmodtower.org/"
+GM.Website  = "http:--www.gmodtower.org/"
 
 DeriveGamemode("gmtgamemode")
 SetupGMTGamemode( "PVP Battle", "pvpbattle", {
-	Loadables = { "weaponfix", "pvp", "painsounds" }, // Additional Loadables
+	Loadables = { "weaponfix", "pvp", "painsounds" }, -- Additional Loadables
 	AllowChangeSize = false,
-	AFKDelay = 60, // Seconds before they will be marked as AFK
-	EnableWeaponSelect = true, // Allow weapon selection
-	EnableCrosshair = true, // Draw the crosshair
-	EnableDamage = true, // Draw red damage effects
+	AFKDelay = 60, -- Seconds before they will be marked as AFK
+	EnableWeaponSelect = true, -- Allow weapon selection
+	EnableCrosshair = true, -- Draw the crosshair
+	EnableDamage = true, -- Draw red damage effects
 } )
 
 GM.MaxRoundsPerGame = 6
@@ -37,7 +37,7 @@ function GM:Dash(pl, move)
 	local aimvec = pl:GetAimVector()
 
 	if pl.DashWeapon && CurTime() < pl.DashWeapon + 0.25 then
-		// try to stop when we hit something
+		-- try to stop when we hit something
 		local trace = util.TraceHull({start=shoot, endpos=shoot+aimvec*50, mins=Vector(-8, -8, -8), maxs=Vector(8, 8, 8), filter=pl})
 
 		if !trace.Hit then
@@ -121,7 +121,7 @@ function GM:HandleMove(pl, move)
 	end
 end
 
-// we keep a history because it's predicted and we can jump forward and back in time
+-- we keep a history because it's predicted and we can jump forward and back in time
 local vars = {"DoubleJump", "DoubleJumped", "Dash"}
 
 function GM:SetupMoveCurrent(pl, move)

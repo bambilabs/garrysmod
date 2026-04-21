@@ -8,14 +8,14 @@ payout.Register( "ThanksForPlaying", {
 payout.Register( "Kills", {
 	Name = "Kills",
 	Desc = "Bonus for killing players (10 GMC each).", 
-	GMC = 0,
+	GMC = 10,
 	Diff = 2,
 } )
 
 payout.Register( "Headshot", {
 	Name = "Headshot Kills",
 	Desc = "Bonus for getting headshot kills (5 GMC each).",
-	GMC = 0,
+	GMC = 5,
 	Diff = 3,
 } )
 
@@ -46,7 +46,7 @@ function GAMEMODE:GiveMoney()
 
 	local PlayerTable = player.GetAll()
 
-	// Sort by top scores
+	-- Sort by top scores
 	table.sort( PlayerTable, function( a, b )
 		local aScore, bScore = a:Frags(), b:Frags()
 
@@ -57,7 +57,7 @@ function GAMEMODE:GiveMoney()
 		return aScore > bScore
 	end )
 
-	// Payout
+	-- Payout
 	for k, ply in pairs( PlayerTable ) do
 
 		if ply.AFK then continue end

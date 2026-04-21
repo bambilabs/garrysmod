@@ -6,13 +6,13 @@
 ]]--
 
 local function playerDamage( mul, time )
-	//Red fade
+	--Red fade
 	local layer = postman.NewColorLayer()
 	layer.addr = mul
 	postman.AddColorLayer( "pdamage", layer )
 	postman.FadeColorOut( "pdamage", mul * .5, 0.4 )
 
-	//Motionblur fade
+	--Motionblur fade
 	layer = postman.NewMotionBlurLayer()
 	layer.addalpha = 0.02
 	postman.AddMotionBlurLayer( "pdamage", layer )
@@ -31,7 +31,7 @@ local function playerHeal( mul, time )
 end
 AddPostEvent( "pheal", playerHeal )
 
-//Power-ups
+--Power-ups
 local function powerupTakeOn_On( mul, time )
 	layer = postman.NewMotionBlurLayer()
 	layer.addalpha = 0.11
@@ -195,7 +195,7 @@ local function powerupBag_Off( mul, time )
 end
 AddPostEvent( "bag_off", powerupBag_Off )
 
-//SWEPS
+--SWEPS
 local function swepNESZapper( mul, time )
 	local layer = postman.NewColorLayer()
 	layer.contrast = 2.0
@@ -241,7 +241,7 @@ end
 AddPostEvent( "cloak_off", Cloak_Off )
 
 
-// karpar
+-- karpar
 local function karparEverywhere( mul, time )
 	local ent = ents.GetByIndex(mul)
 	local edata = EffectData()

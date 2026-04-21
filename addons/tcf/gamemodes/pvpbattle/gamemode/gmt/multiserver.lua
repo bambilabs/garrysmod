@@ -65,7 +65,7 @@ end*/
 hook.Add("PlayerDisconnected", "StopServerEmpty", function(ply)
 	if ply:IsBot() || #player.GetBots() > 0 then return end
 
-	//No need to play an empty server, or by yourself
+	--No need to play an empty server, or by yourself
 	timer.Simple( 5.0, function()
 
 		local clients = player.GetCount() --gatekeeper.GetNumClients()

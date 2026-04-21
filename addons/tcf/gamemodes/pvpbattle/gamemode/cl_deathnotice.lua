@@ -10,43 +10,43 @@ net.Receive( "CustomDeath", function( len, ply )
 end )
 
 local messagetable = {
-	// melee
+	-- melee
 	weapon_toyhammer	= "%attacker squeaked %victim to death",
 	weapon_sword		= "%attacker out skilled %victim in a furious sword duel",
 	weapon_pulsesmartpen = "%attacker recorded %victim's death",
 	weapon_chainsaw		= "%attacker sliced and diced %victim with a chainsaw",
 
-	// pistol
+	-- pistol
 	weapon_neszapper	= "%attacker old skool'd %victim",
 	weapon_ragingbull	= "%attacker richocheted %victim",
 	weapon_stealthpistol = "%attacker silently assassinated %victim",
 	weapon_semiauto		= "%attacker pistol whipped %victim",
 	weapon_akimbo		= "%attacker used the mighty akimbo on %victim",
 
-	// smg
+	-- smg
 	weapon_xm8			= "%attacker tore %victim to shreds using a futuristic gun",
 	weapon_thompson		= "%attacker killed %victim in a true gangster fashion",
 	weapon_patriot		= "%attacker turned %victim into swiss cheese",
 
-	// shotguns
+	-- shotguns
 	weapon_supershotty	= "%attacker blew %victim in half",
 	weapon_spas12		= "%attacker pumped %victim full of lead",
 
-	// snipers
+	-- snipers
 	weapon_m1grand		= "%attacker taught %victim how to play COD",
 	weapon_sniper		= "%attacker cleverly sniped %victim",
 	
-	// grenades
+	-- grenades
 	pvp_glauncher_nade	= "%attacker luckily exploded %victim",
 	pvp_glauncher_stickynade = "%attacker turned %victim into a human firework",
 
-	// misc
+	-- misc
 	pvp_babynade		= "%attacker baby'd %victim into pieces",
 	pvp_tripmine		= "%attacker made a mockery out of %victim",
 	pvp_grenade			= "%attacker exploded %victim with a well placed grenade",
 	pvp_chainsaw		= "%attacker ripped %victim apart with a flying chainsaw",
 
-	// special
+	-- special
 	weapon_rage			= "%attacker punched the $%&# out of %victim",
 	pvp_candycorn		= "%attacker filled %victim with candy",
 	suicide				= "%victim suicided",
@@ -81,13 +81,13 @@ function GM:AddDeathNotice( Attacker, team1, Inflictor, Victim, team2 )
 	if !GTowerChat.Chat then CreateGChat(true) end
 	GTowerChat.Chat:AddText( message, Color( 155, 200, 255, 255 ) )
 
-	//chat.AddText(Color( 155, 200, 255, 255 ), message)
+	--chat.AddText(Color( 155, 200, 255, 255 ), message)
 end
 
 local death_sound = {
 	weapon_neszapper	= "GModTower/pvpbattle/NESZapper/NESKill.wav",
 	weapon_patriot		= "GModTower/pvpbattle/Patriot/PatriotKill.wav",
-	//weapon_sword		= "GModTower/pvpbattle/Sword/SwordVKill.wav",
+	--weapon_sword		= "GModTower/pvpbattle/Sword/SwordVKill.wav",
 	weapon_pulsesmartpen = {
 			"GModTower/pvpbattle/PulseSmartPen/YouGotThat1.wav", 
 			"GModTower/pvpbattle/PulseSmartPen/YouGotThat2.wav", 

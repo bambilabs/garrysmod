@@ -4,7 +4,7 @@ module( "Scoreboard.Customization", package.seeall )
 
 
 
-// COLORS
+-- COLORS
 
 ColorFont = color_white
 
@@ -46,7 +46,7 @@ ColorAwardsAchievedIcon = Color( 32, 255, 4, 150 )
 
 
 
-// HEADER
+-- HEADER
 
 HeaderTitle = ""
 
@@ -58,7 +58,7 @@ HeaderMatRightBorder = Scoreboard.GenTexture( "ScoreboardPVPRightBorder", "pvpba
 
 
 
-// RANK SYSTEM
+-- RANK SYSTEM
 
 local function CalculateRanks()
 
@@ -130,7 +130,7 @@ local Trophies =
 
 
 
-// PLAYER
+-- PLAYER
 
 
 
@@ -158,7 +158,7 @@ end
 
 
 
-// Subtitle (under name)
+-- Subtitle (under name)
 
 PlayerSubtitleText = function( ply )
 
@@ -180,7 +180,7 @@ end
 
 
 
-// Background
+-- Background
 
 PlayerBackgroundMaterial = function( ply )
 
@@ -188,7 +188,7 @@ end
 
 
 
-// Notification (above avatar)
+-- Notification (above avatar)
 
 PlayerNotificationIcon = function( ply )
 
@@ -222,7 +222,7 @@ end
 
 
 
-// Jazz the player avatar? (for winner only)
+-- Jazz the player avatar? (for winner only)
 
 PlayerAvatarJazz = function( ply )
 
@@ -244,7 +244,7 @@ end
 
 
 
-// Action Box
+-- Action Box
 
 PlayerActionBoxEnabled = true
 

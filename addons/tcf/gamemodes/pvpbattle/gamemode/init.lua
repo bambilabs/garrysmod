@@ -9,9 +9,9 @@ include( "player.lua" )
 CreateConVar("gmt_srvid", 5 )
 
 game.ConsoleCommand("sv_scriptenforcer 1\n")
-GTowerServers:SetRandomPassword()  //Hot fix for now.
+GTowerServers:SetRandomPassword()  --Hot fix for now.
 
-//Set a random password for the server
+--Set a random password for the server
 /*if GetConVarString("sv_password") == "" then
 	GTowerServers:SetRandomPassword()
 end*/
@@ -24,7 +24,7 @@ hook.Add("PlayerInitialSpawn", "ResetOnEmptyServer", function( ply )
 	if !ply:IsBot() then
 		GAMEMODE:BeginGame()
 
-		//This is a one time deal, or it can be abused to make a infinite game by reconnecting
+		--This is a one time deal, or it can be abused to make a infinite game by reconnecting
 		hook.Remove("PlayerInitialSpawn", "ResetOnEmptyServer")
 
 		GAMEMODE:SetState( 2 )
@@ -91,25 +91,25 @@ function GM:Think()
 end
 
 function GM:PlayerSpawn( ply )
-	// Music on join
+	-- Music on join
 	if !ply.MusicJoined then
 		ply.MusicJoined = true
 		music.Play( 1, 1, ply )
 	end
 
-	// Stop observer mode
+	-- Stop observer mode
  	ply:UnSpectate()
 
-	// Disable default crosshair
+	-- Disable default crosshair
 	ply:CrosshairDisable()
 
-	// Fuck you
+	-- Fuck you
 	PostEvent( ply, "putimestop_off" )
 
- 	// Call item loadout function
+ 	-- Call item loadout function
  	hook.Call( "PlayerLoadout", self, ply )
 
- 	// Set player model
+ 	-- Set player model
 	self.BaseClass:PlayerSpawn(ply)
 
 	if !ply._HackerAmt then
@@ -156,7 +156,7 @@ function GM:GivePVPAmmo( ply )
 	ply:GiveAmmo( 4, "slam", true )
 end
 
-// Apply Late SQL Weapons
+-- Apply Late SQL Weapons
 hook.Add( "PostPlayerDataLoaded", "LateWeapons", function(ply)
 	ply:StripWeapons()
 	ply:RemoveAllAmmo()
@@ -257,7 +257,7 @@ function GM:PlayerDeath( Victim, Inflictor, Attacker )
 	end
 	
 	
-	//Unused?
+	--Unused?
 	/*if IsValid(Inflictor) && Inflictor:GetClass() == "pvp_babynade" && IsValid(Attacker) && Attacker:IsPlayer() && string.StartWith( game.GetMap(), "gmt_pvp_aether" ) then
 		Attacker:AddAchievement( ACHIEVEMENTS.PVPMAFIA, 1 )
 	end*/
@@ -352,7 +352,7 @@ function GM:DoPlayerDeath( ply, attacker, dmginfo )
 						attacker:AddAchievement( ACHIEVEMENTS.PVP12SHOTS, 1 )
 					elseif weapon == "weapon_ragingbull" then
 						attacker._TheKid = attacker._TheKid + 1
-						//print(attacker._TheKid)
+						--print(attacker._TheKid)
 
 						if attacker._TheKid >= 5 then
 							attacker:SetAchievement( ACHIEVEMENTS.PVPTHEKID, 1 )
@@ -401,7 +401,7 @@ function GM:StartRound()
 	for _, ply in ipairs( plys ) do
 		ply:Freeze( false )
 
-		//Set scores.
+		--Set scores.
 		ply:SetFrags( 0 )
 		ply:SetDeaths( 0 )
 
@@ -474,7 +474,7 @@ hook.Add("AllowSpecialAdmin", "DisalowGodmode", function()
 	return false
 end)
 
-// no anti-tranquility on gamemodes
+-- no anti-tranquility on gamemodes
 hook.Add( "AntiTranqEnable", "GamemodeAntiTranq", function() return false end )
 
 concommand.Add("gmt_pvpgiveweapons", function( ply, cmd, args )

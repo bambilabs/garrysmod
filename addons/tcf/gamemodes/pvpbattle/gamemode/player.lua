@@ -1,6 +1,6 @@
 PlayerMeta = FindMetaTable( "Player" )
 
-// switches to the next available weapon on the player
+-- switches to the next available weapon on the player
 function PlayerMeta:SwitchToNextWeapon()
 
 	if !SERVER then return end
